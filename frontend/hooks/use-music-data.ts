@@ -2,6 +2,7 @@
 
 import useSWR from "swr"
 import { useMemo } from "react"
+import { API_BASE_URL } from "../config"
 
 export interface MusicDataFilters {
   dateRange?: {
@@ -12,8 +13,6 @@ export interface MusicDataFilters {
   composer?: string
   genre?: string
 }
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
 
 const fetcher = async (url: string) => {
   const response = await fetch(`${API_BASE_URL}${url}`)
@@ -49,10 +48,14 @@ export function useMusicData(endpoint: string, filters?: MusicDataFilters) {
     return params.toString() ? `?${params.toString()}` : ""
   }, [filters])
 
-  const { data, error, isLoading, mutate } = useSWR(`${endpoint}${queryParams}`, fetcher, {
-    revalidateOnFocus: false,
-    dedupingInterval: 60000, // 1 minute
-  })
+  const { data, error, isLoading, mutate } = useSWR(
+    `${endpoint}${queryParams}`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 60000, // 1 minuto
+    }
+  )
 
   return {
     data,
@@ -94,11 +97,22 @@ export function useGlobalMetrics(filters?: MusicDataFilters) {
   return useMusicData("/analysis/global", filters)
 }
 
+export function useDifferentiatingData(filters?: MusicDataFilters) {
+  return useMusicData("/analysis/differentiating", filters)
+}
+
+export function useFileMetrics(fileId: string, category?: string) {
+  const endpoint = category
+    ? `/files/${fileId}/${category}`
+    : `/files/${fileId}/metrics`
+  return useMusicData(endpoint)
+}
+
 export function useFileUpload() {
   const uploadFiles = async (files: File[]) => {
     const formData = new FormData()
-    files.forEach((file, index) => {
-      formData.append(`files`, file)
+    files.forEach((file) => {
+      formData.append("files", file)
     })
 
     const response = await fetch(`${API_BASE_URL}/files/upload`, {
@@ -114,13 +128,4 @@ export function useFileUpload() {
   }
 
   return { uploadFiles }
-}
-
-export function useDifferentiatingData(filters?: MusicDataFilters) {
-  return useMusicData("/analysis/differentiating", filters)
-}
-
-export function useFileMetrics(fileId: string, category?: string) {
-  const endpoint = category ? `/files/${fileId}/${category}` : `/files/${fileId}/metrics`
-  return useMusicData(endpoint)
 }

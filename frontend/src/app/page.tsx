@@ -9,6 +9,7 @@ import { useFileUpload } from "@/hooks/use-music-data"
 import { useArchivos } from "@/context/ArchivoContext"
 
 export default function WelcomePage() {
+  console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
   const [files, setFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
