@@ -6,60 +6,82 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-const FORMAL_METRICS = [
+const DIFFERENTIATING_METRICS = [
   {
-    id: "musical-puzzle",
-    name: "Rompecabezas musical",
-    description: "Piezas encajadas a lo largo de línea de tiempo para segmentación",
-    type: "PuzzleChart",
+    id: "entropy-rainbow",
+    name: "Mapa de arco iris",
+    description: "Entropía melódica/armónica/rítmica con gradiente rainbow",
+    type: "Multi-BarChart",
   },
   {
-    id: "movement-pie",
-    name: "Pastel de movimientos",
-    description: "PieChart animado que crece/retrae según porcentaje de duración",
-    type: "Animated PieChart",
+    id: "musical-mirror",
+    name: "Espejo musical",
+    description: "Simetría formal con bloques espejados conectados",
+    type: "Mirrored SVG",
   },
   {
-    id: "marked-paths",
-    name: "Caminos marcados",
-    description: "Líneas de color conectando ocurrencias de motivos sobre pentagrama",
-    type: "Canvas Lines",
+    id: "golden-rule",
+    name: "Regla de oro",
+    description: "Sección áurea marcando offsets φ×duración",
+    type: "TimelineChart",
   },
   {
-    id: "sound-mirror",
-    name: "Espejo sonoro",
-    description: "Bloques espejo con gradientes reflejando correlación de segmentos",
-    type: "Mirror Blocks",
+    id: "tonal-variety",
+    name: "Mapa tonal comparativo",
+    description: "Variedad tonal coloreada por proporción de cada tono",
+    type: "MosaicChart",
+  },
+  {
+    id: "digital-pulse",
+    name: "Pulso digital",
+    description: "Complejidad rítmica comparando síncopas vs patrones únicos",
+    type: "Multi-BarChart",
+  },
+  {
+    id: "neural-network",
+    name: "Red neuronal orquestal",
+    description: "Red de interacción con densidad de enlaces",
+    type: "Force Graph",
+  },
+  {
+    id: "zscore-gauges",
+    name: "Z-score gauges",
+    description: "Innovación estadística con percentiles de métricas clave",
+    type: "GaugeChart",
+  },
+  {
+    id: "fractal-signature",
+    name: "Árbol ramificado",
+    description: "Firma fractal con nodos coloridos según niveles fractales",
+    type: "Animated TreeChart",
   },
 ]
 
-export default function FormalAnalysisPage() {
-  const [selectedMetric, setSelectedMetric] = useState<string>(FORMAL_METRICS[0].id)
+export default function DifferentiatingMetricsPage() {
+  const [selectedMetric, setSelectedMetric] = useState<string>(DIFFERENTIATING_METRICS[0].id)
   const router = useRouter()
 
-  const currentMetric = FORMAL_METRICS.find((m) => m.id === selectedMetric)
+  const currentMetric = DIFFERENTIATING_METRICS.find((m) => m.id === selectedMetric)
 
+  // Generar datos aleatorios para la demostración
   const generateRandomData = () => {
     switch (selectedMetric) {
-      case "movement-pie":
-        return [
-          { name: "Exposición", value: 30, duration: "3:45" },
-          { name: "Desarrollo", value: 45, duration: "5:30" },
-          { name: "Recapitulación", value: 25, duration: "3:15" },
-        ]
-      case "marked-paths":
-        return Array.from({ length: 4 }, (_, i) => ({
-          motif: `Motivo ${String.fromCharCode(65 + i)}`,
-          occurrences: Array.from({ length: Math.floor(Math.random() * 5) + 2 }, () => ({
-            measure: Math.floor(Math.random() * 100) + 1,
-            strength: Math.random(),
-          })),
+      case "entropy-rainbow":
+        return Array.from({ length: 12 }, (_, i) => ({
+          name: `Medida ${i + 1}`,
+          melodic: Math.random() * 100,
+          harmonic: Math.random() * 100,
+          rhythmic: Math.random() * 100,
+        }))
+      case "tonal-variety":
+        return Array.from({ length: 12 }, (_, i) => ({
+          tone: ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][i],
+          proportion: Math.random() * 100,
         }))
       default:
-        return Array.from({ length: 6 }, (_, i) => ({
-          section: `Sección ${i + 1}`,
-          start: i * 20,
-          duration: Math.floor(Math.random() * 15) + 10,
+        return Array.from({ length: 10 }, (_, i) => ({
+          x: i,
+          y: Math.random() * 100,
         }))
     }
   }
@@ -92,11 +114,11 @@ export default function FormalAnalysisPage() {
           <div className="lg:col-span-1">
             <Card className="bg-white/80 backdrop-blur-sm border-orange-200">
               <CardHeader>
-                <CardTitle className="text-lg font-semibold text-gray-800">Análisis Formal</CardTitle>
+                <CardTitle className="text-lg font-semibold text-gray-800">Métricas Diferenciadoras</CardTitle>
                 <CardDescription>Selecciona una métrica para visualizar</CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
-                {FORMAL_METRICS.map((metric) => (
+                {DIFFERENTIATING_METRICS.map((metric) => (
                   <Button
                     key={metric.id}
                     variant={selectedMetric === metric.id ? "default" : "ghost"}
@@ -128,13 +150,13 @@ export default function FormalAnalysisPage() {
                 <div className="h-96 flex items-center justify-center bg-gradient-to-br from-yellow-100 via-orange-100 to-purple-100 rounded-lg">
                   <div className="text-center space-y-4">
                     <div className="w-16 h-16 mx-auto bg-gradient-to-r from-yellow-500 to-purple-600 rounded-full flex items-center justify-center">
-                      <div className="text-white font-bold text-xl">🧩</div>
+                      <div className="text-white font-bold text-xl">📊</div>
                     </div>
                     <div>
                       <h3 className="text-lg font-semibold text-gray-800 mb-2">{currentMetric?.name}</h3>
                       <p className="text-gray-600 mb-4">Visualización de {currentMetric?.type}</p>
                       <div className="text-sm text-gray-500">
-                        Datos generados: {JSON.stringify(generateRandomData().slice(0, 2), null, 2)}...
+                        Datos generados: {JSON.stringify(generateRandomData().slice(0, 3), null, 2)}...
                       </div>
                     </div>
                   </div>
