@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Geist } from "next/font/google"
 import { SWRProvider } from "@/hooks/use-swr-config"
+import { ArchivoProvider } from "@/context/ArchivoContext"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -23,7 +24,11 @@ export default function RootLayout({
   return (
     <html lang="es" className={geistSans.variable}>
       <body className="font-sans antialiased">
-        <SWRProvider>{children}</SWRProvider>
+        <SWRProvider>
+          <ArchivoProvider>
+            {children}
+          </ArchivoProvider>
+        </SWRProvider>
       </body>
     </html>
   )

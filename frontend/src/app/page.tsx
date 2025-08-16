@@ -1,15 +1,21 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Upload, FileMusic, FileText } from "lucide-react"
+import { Upload, FileMusic, FileText, Loader2 } from "lucide-react"
+import { useFileUpload } from "@/hooks/use-music-data"
+import { useArchivos } from "@/context/ArchivoContext"
 
 export default function WelcomePage() {
   const [files, setFiles] = useState<File[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  const { uploadFiles } = useFileUpload()
+  const { setArchivos } = useArchivos()
 
   const handleFileUpload = (uploadedFiles: FileList | null) => {
     if (!uploadedFiles) return
@@ -38,9 +44,27 @@ export default function WelcomePage() {
     handleFileUpload(e.dataTransfer.files)
   }
 
-  const proceedToAnalysis = () => {
-    if (files.length > 0) {
+  const proceedToAnalysis = async () => {
+    if (files.length === 0) return
+
+    setIsUploading(true)
+    setUploadError(null)
+
+    try {
+      const result = await uploadFiles(files)
+
+      // Guardar en contexto global
+      setArchivos(result.files.map((f: { file: File; id: string }) => ({
+        file: f.file,
+        id: f.id
+      })))
+
       window.location.href = "/dashboard"
+    } catch (error) {
+      console.error("[SmartScore] Error al subir archivos:", error)
+      setUploadError(error instanceof Error ? error.message : "Error al subir archivos")
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -51,10 +75,12 @@ export default function WelcomePage() {
           <CardTitle className="text-4xl font-bold bg-gradient-to-r from-mango-purple to-mango-coral bg-clip-text text-transparent">
             SmartScore
           </CardTitle>
-          <CardDescription className="text-xl mt-4">Bienvenido al sistema de análisis musical avanzado</CardDescription>
+          <CardDescription className="text-xl mt-4">
+            Bienvenido al sistema de análisis musical avanzado
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* File Upload Area */}
+          {/* Área de carga */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
               isDragOver
@@ -70,7 +96,9 @@ export default function WelcomePage() {
             <p className="text-muted-foreground mb-4">
               Arrastra y suelta tus archivos aquí o haz clic para seleccionar
             </p>
-            <p className="text-sm text-muted-foreground mb-4">Formatos permitidos: MIDI (.mid, .midi) y XML (.xml)</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Formatos permitidos: MIDI (.mid, .midi) y XML (.xml)
+            </p>
 
             <input
               type="file"
@@ -87,7 +115,7 @@ export default function WelcomePage() {
             </label>
           </div>
 
-          {/* Uploaded Files List */}
+          {/* Lista de archivos */}
           {files.length > 0 && (
             <div className="space-y-2">
               <h4 className="font-semibold">Archivos cargados:</h4>
@@ -104,14 +132,28 @@ export default function WelcomePage() {
             </div>
           )}
 
-          {/* Proceed Button */}
+          {/* Error */}
+          {uploadError && (
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{uploadError}</p>
+            </div>
+          )}
+
+          {/* Botón de continuar */}
           <Button
             onClick={proceedToAnalysis}
-            disabled={files.length === 0}
+            disabled={files.length === 0 || isUploading}
             className="w-full bg-gradient-to-r from-mango-coral to-mango-purple hover:from-mango-coral/90 hover:to-mango-purple/90"
             size="lg"
           >
-            Continuar al Análisis
+            {isUploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Subiendo archivos...
+              </>
+            ) : (
+              "Continuar al Análisis"
+            )}
           </Button>
         </CardContent>
       </Card>

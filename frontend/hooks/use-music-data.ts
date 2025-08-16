@@ -13,6 +13,16 @@ export interface MusicDataFilters {
   genre?: string
 }
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"
+
+const fetcher = async (url: string) => {
+  const response = await fetch(`${API_BASE_URL}${url}`)
+  if (!response.ok) {
+    throw new Error(`Error ${response.status}: ${response.statusText}`)
+  }
+  return response.json()
+}
+
 export function useMusicData(endpoint: string, filters?: MusicDataFilters) {
   const queryParams = useMemo(() => {
     if (!filters) return ""
@@ -39,7 +49,7 @@ export function useMusicData(endpoint: string, filters?: MusicDataFilters) {
     return params.toString() ? `?${params.toString()}` : ""
   }, [filters])
 
-  const { data, error, isLoading, mutate } = useSWR(`${endpoint}${queryParams}`, {
+  const { data, error, isLoading, mutate } = useSWR(`${endpoint}${queryParams}`, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60000, // 1 minute
   })
@@ -53,33 +63,64 @@ export function useMusicData(endpoint: string, filters?: MusicDataFilters) {
 }
 
 export function useInstrumentalData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/instrumental", filters)
+  return useMusicData("/analysis/instrumental", filters)
 }
 
 export function useMelodicData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/melodic", filters)
+  return useMusicData("/analysis/melodic", filters)
 }
 
 export function useRhythmicData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/rhythmic", filters)
+  return useMusicData("/analysis/rhythmic", filters)
 }
 
 export function useHarmonicData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/harmonic", filters)
+  return useMusicData("/analysis/harmonic", filters)
 }
 
 export function useTexturalData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/textural", filters)
+  return useMusicData("/analysis/textural", filters)
 }
 
 export function useFormalData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/formal", filters)
+  return useMusicData("/analysis/formal", filters)
 }
 
 export function useInteractionData(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/interaction", filters)
+  return useMusicData("/analysis/interaction", filters)
 }
 
 export function useGlobalMetrics(filters?: MusicDataFilters) {
-  return useMusicData("/api/analysis/global", filters)
+  return useMusicData("/analysis/global", filters)
+}
+
+export function useFileUpload() {
+  const uploadFiles = async (files: File[]) => {
+    const formData = new FormData()
+    files.forEach((file, index) => {
+      formData.append(`files`, file)
+    })
+
+    const response = await fetch(`${API_BASE_URL}/files/upload`, {
+      method: "POST",
+      body: formData,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  return { uploadFiles }
+}
+
+export function useDifferentiatingData(filters?: MusicDataFilters) {
+  return useMusicData("/analysis/differentiating", filters)
+}
+
+export function useFileMetrics(fileId: string, category?: string) {
+  const endpoint = category ? `/files/${fileId}/${category}` : `/files/${fileId}/metrics`
+  return useMusicData(endpoint)
 }

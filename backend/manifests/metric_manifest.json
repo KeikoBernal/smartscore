@@ -1,0 +1,255 @@
+{
+  "instrumentales": {
+    "densidad_instrumental": {
+      "descripcion": "Conteo normalizado por instrumento en el plano orquestal",
+      "visualizacion": "mapa_canvas_orquesta",
+      "salida": "dict"
+    },
+    "frecuencia_aparicion": {
+      "descripcion": "Frecuencia de aparición por compás e instrumento",
+      "visualizacion": "mapa_calor",
+      "salida": "matriz"
+    },
+    "duracion_promedio_por_familia": {
+      "descripcion": "Duración promedio por familia instrumental",
+      "visualizacion": "grafico_polar",
+      "salida": "dict"
+    },
+    "distribucion_por_familia": {
+      "descripcion": "Distribución temporal por familia instrumental",
+      "visualizacion": "grafico_barras_apiladas",
+      "salida": "dict"
+    },
+    "solismo_vs_tutti": {
+      "descripcion": "Identificación de compases solistas vs tutti",
+      "visualizacion": "superposicion_partitura",
+      "salida": "lista"
+    },
+    "participacion_instrumental": {
+      "descripcion": "Porcentaje de participación por instrumento",
+      "visualizacion": "grafico_donut",
+      "salida": "dict"
+    }
+  },
+  "melodicas": {
+    "intervalos_predominantes": {
+      "descripcion": "Distribución de intervalos predominantes",
+      "visualizacion": "grafico_barras_horizontal",
+      "salida": "dict"
+    },
+    "direccionalidad_melodica": {
+      "descripcion": "Direccionalidad melódica ascendente/descendente",
+      "visualizacion": "flechas_sobre_pentagrama",
+      "salida": "dict"
+    },
+    "ambitus": {
+      "descripcion": "Rango entre nota más grave y más aguda",
+      "visualizacion": "termometro_tesitura",
+      "salida": "int"
+    },
+    "motivos_recurrentes": {
+      "descripcion": "Ocurrencias de motivos melódicos",
+      "visualizacion": "lupa_sobre_partitura",
+      "salida": "lista"
+    },
+    "entropia_melodica": {
+      "descripcion": "Entropía melódica basada en distribución de alturas",
+      "visualizacion": "torbellino_de_notas",
+      "salida": "float"
+    },
+    "variabilidad_melodica": {
+      "descripcion": "Índice de variabilidad melódica por sección",
+      "visualizacion": "grafico_lineas",
+      "salida": "lista"
+    }
+  },
+  "ritmicas": {
+    "densidad_ritmica": {
+      "descripcion": "Promedio de notas por beat",
+      "visualizacion": "grafico_lineas",
+      "salida": "float"
+    },
+    "duraciones_predominantes": {
+      "descripcion": "Frecuencia de figuras rítmicas",
+      "visualizacion": "grafico_iconos",
+      "salida": "dict"
+    },
+    "complejidad_ritmica": {
+      "descripcion": "Varianza rítmica por compás",
+      "visualizacion": "grafico_barras_animado",
+      "salida": "lista"
+    },
+    "polirritmia": {
+      "descripcion": "Índice de polirritmia entre voces",
+      "visualizacion": "cintas_entrelazadas",
+      "salida": "float"
+    },
+    "entropia_ritmica": {
+      "descripcion": "Entropía rítmica por compás",
+      "visualizacion": "pentagrama_confeti",
+      "salida": "lista"
+    }
+  },
+  "armonicas": {
+    "progresiones": {
+      "descripcion": "Secuencia de acordes sobre círculo de quintas",
+      "visualizacion": "grafico_lineas_circular",
+      "salida": "lista"
+    },
+    "tension_armonica": {
+      "descripcion": "Nivel de tensión armónica por compás",
+      "visualizacion": "grafico_olas",
+      "salida": "lista"
+    },
+    "modulaciones": {
+      "descripcion": "Cambios de tonalidad a lo largo de la obra",
+      "visualizacion": "bloques_tonalidad_sobre_partitura",
+      "salida": "lista"
+    },
+    "distribucion_acordes": {
+      "descripcion": "Frecuencia y tipo de acordes",
+      "visualizacion": "jardin_de_acordes",
+      "salida": "dict"
+    },
+    "entropia_armonica": {
+      "descripcion": "Entropía armónica por compás",
+      "visualizacion": "arcoiris_sobre_score",
+      "salida": "lista"
+    }
+  },
+  "texturales": {
+    "tipo_textura": {
+      "descripcion": "Tipo de textura: homofonía vs contrapunto",
+      "visualizacion": "grafo_textural",
+      "salida": "string"
+    },
+    "voces_simultaneas": {
+      "descripcion": "Número de voces simultáneas por compás",
+      "visualizacion": "grafico_barras_apiladas",
+      "salida": "lista"
+    },
+    "distribucion_espacial": {
+      "descripcion": "Distribución vertical por registro",
+      "visualizacion": "mapa_registro",
+      "salida": "dict"
+    },
+    "balance_dinamico": {
+      "descripcion": "Balance dinámico por sección instrumental",
+      "visualizacion": "vu_metro_orquestal",
+      "salida": "dict"
+    }
+  },
+  "formales": {
+    "segmentacion_formal": {
+      "descripcion": "Segmentación estructural de la obra",
+      "visualizacion": "rompecabezas_musical",
+      "salida": "lista"
+    },
+    "duracion_secciones": {
+      "descripcion": "Duración relativa de cada sección",
+      "visualizacion": "pastel_de_movimientos",
+      "salida": "dict"
+    },
+    "repeticion_tematica": {
+      "descripcion": "Conexiones entre ocurrencias temáticas",
+      "visualizacion": "caminos_marcados",
+      "salida": "lista"
+    },
+    "simetria_formal": {
+      "descripcion": "Simetría estructural entre secciones",
+      "visualizacion": "espejo_sonoro",
+      "salida": "float"
+    }
+  },
+  "interaccion": {
+    "red_interaccion": {
+      "descripcion": "Red de co-ocurrencia entre instrumentos",
+      "visualizacion": "mapa_conexiones",
+      "salida": "grafo"
+    },
+    "simultaneidad_tematica": {
+      "descripcion": "Coincidencia de motivos en compases",
+      "visualizacion": "panel_de_luces",
+      "salida": "matriz"
+    },
+    "contrapunto_activo": {
+      "descripcion": "Índice de contrapunto activo",
+      "visualizacion": "cinta_infinita",
+      "salida": "float"
+    },
+    "entropia_interaccion": {
+      "descripcion": "Diversidad de combinaciones instrumentales",
+      "visualizacion": "mosaico_animado",
+      "salida": "float"
+    },
+    "fractalidad": {
+      "descripcion": "Auto-similitud en patrones de interacción",
+      "visualizacion": "arbol_genealogico",
+      "salida": "arbol"
+    }
+  },
+  "globales": {
+    "perfil_compositivo": {
+      "descripcion": "Perfil compositivo global",
+      "visualizacion": "retrato_musical",
+      "salida": "dict"
+    },
+    "indice_innovacion": {
+      "descripcion": "Índice de innovación estadística",
+      "visualizacion": "termometro_o_tornado",
+      "salida": "float"
+    },
+    "complejidad_total": {
+      "descripcion": "Complejidad total de la obra",
+      "visualizacion": "medidor_energia",
+      "salida": "float"
+    },
+    "firma_metrica": {
+      "descripcion": "Firma métrica de la obra",
+      "visualizacion": "huella_digital_sonora",
+      "salida": "dict"
+    }
+  },
+  "diferenciadoras": {
+    "entropia_combinada": {
+      "descripcion": "Entropía melódica, armónica y rítmica",
+      "visualizacion": "mapa_arcoiris",
+      "salida": "dict"
+    },
+        "simetria_formal": {
+      "descripcion": "Bloques espejados conectados por líneas",
+      "visualizacion": "espejo_musical",
+      "salida": "float"
+    },
+    "seccion_aurea": {
+      "descripcion": "Presencia de proporciones áureas en la estructura",
+      "visualizacion": "regla_de_oro",
+      "salida": "lista"
+    },
+    "variedad_tonal": {
+      "descripcion": "Proporción de tonalidades utilizadas",
+      "visualizacion": "mapa_tonal_comparativo",
+      "salida": "dict"
+    },
+    "complejidad_ritmica_cuantificable": {
+      "descripcion": "Comparación entre sincopas y patrones únicos",
+      "visualizacion": "pulso_digital",
+      "salida": "float"
+    },
+    "red_interaccion_densa": {
+      "descripcion": "Red neuronal orquestal con densidad de enlaces",
+      "visualizacion": "red_neuronal_orquestal",
+      "salida": "grafo"
+    },
+    "innovacion_estadistica": {
+      "descripcion": "Z-score de métricas clave",
+      "visualizacion": "zscore_gauges",
+      "salida": "dict"
+    },
+    "firma_fractal": {
+      "descripcion": "Árbol ramificado con niveles fractales",
+      "visualizacion": "arbol_ramificado",
+      "salida": "arbol"
+    }
+  }
+}
