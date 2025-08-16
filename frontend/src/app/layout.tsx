@@ -1,13 +1,17 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { Geist } from "next/font/google"
 import { SWRProvider } from "@/hooks/use-swr-config"
 import "./globals.css"
 
+const geistSans = Geist({
+  subsets: ["latin"],
+  variable: "--font-sans",
+})
+
 export const metadata: Metadata = {
-  title: "SmartScore - Music Analysis Dashboard",
-  description: "Advanced music analysis and visualization platform",
+  title: "SmartScore - Panel de Análisis Musical",
+  description: "Plataforma avanzada de análisis y visualización musical",
   generator: "SmartScore Frontend",
 }
 
@@ -17,17 +21,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <head>
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
-      </head>
-      <body className="antialiased">
+    <html lang="es" className={geistSans.variable}>
+      <body className="font-sans antialiased">
         <SWRProvider>{children}</SWRProvider>
       </body>
     </html>

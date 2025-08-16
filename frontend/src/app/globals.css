@@ -4,6 +4,10 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Adding font-sans CSS variable for consistent font rendering */
+  --font-sans:
+    var(--font-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+
   --background: oklch(0.98 0.01 60);
   --foreground: oklch(0.15 0.02 280);
   --card: oklch(1 0 0);
@@ -88,6 +92,9 @@
 }
 
 @theme inline {
+  /* Adding font-sans to theme configuration */
+  --font-sans: var(--font-sans);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -145,6 +152,10 @@
 
 /* Adding custom utility classes for mango palette */
 @layer utilities {
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+
   .bg-mango-yellow {
     background-color: var(--color-mango-yellow);
   }
