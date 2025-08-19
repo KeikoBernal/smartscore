@@ -1,73 +1,111 @@
-from music21 import converter, stream, note, chord, meter, pitch, expressions, repeat, dynamics
+from music21 import converter, stream, note, chord, meter, pitch, expressions
 from sklearn.cluster import KMeans
 import numpy as np
 import pretty_midi
 from collections import defaultdict
+import os
 
-def analizar_compases(partitura_path):
-    score = converter.parse(partitura_path)
-    compases = score.parts[0].getElementsByClass(stream.Measure)
-    vectores = []
-    resultado = []
+# -------------------------------
+# Funciones auxiliares
+# -------------------------------
 
+def motivos_recurrentes(compases, n=3, instrumento=None):
+    motivos = {}
     for m in compases:
-        vectores.append(vector_textura(m))
+        notas = [
+            n.pitch.midi for n in m.notes
+            if isinstance(n, note.Note) and (instrumento is None or getattr(n.getInstrument(), 'instrumentName', None) == instrumento)
+        ]
+        for i in range(len(notas) - n + 1):
+            motivo = tuple(notas[i:i+n])
+            clave = "-".join(str(p) for p in motivo)
+            motivos[clave] = motivos.get(clave, 0) + 1
+    return {k: int(v) for k, v in motivos.items() if v > 1}
 
-    etiquetas = etiquetar_secciones(vectores, n_clusters=4)
-    transiciones = detectar_transiciones(vectores, threshold=10.0)
-    variabilidad = calcular_variabilidad_densidad(vectores)
-    energia_por_compas = extraer_energia_midi(partitura_path, len(compases))
-    instrumentos_por_compas = densidad_instrumental_por_compas(partitura_path, len(compases))
+def progresiones_armonicas(score, instrumento=None):
+    partes = score.parts
+    if instrumento:
+        partes = [p for p in partes if p.partName == instrumento]
+    acordes = partes[0].chordify().recurse().getElementsByClass(chord.Chord) if partes else []
+    return [c.pitchedCommonName for c in acordes]
 
-    midi = pretty_midi.PrettyMIDI(partitura_path)
-    motivos = motivos_recurrentes(compases)
-    progresiones = progresiones_armonicas(score)
-    intervalos = intervalos_predominantes(score)
-    balance = balance_dinamico(midi)
-    familias = clasificar_familias(midi)
+def intervalos_predominantes(score, instrumento=None):
+    partes = score.parts
+    if instrumento:
+        partes = [p for p in partes if p.partName == instrumento]
+    notas = [n for p in partes for n in p.flat.notes if isinstance(n, note.Note)]
+    intervalos = [
+        notas[i].pitch.midi - notas[i-1].pitch.midi
+        for i in range(1, len(notas))
+    ]
+    return intervalos
 
-    for i, m in enumerate(compases):
-        ritmo = ritmo_armonico(m)
-        tension = curva_tension(m, ritmo)
-        ritmo_complejo = complejidad_ritmica(m)
+def balance_dinamico(midi, instrumento=None):
+    energia = {}
+    for inst in midi.instruments:
+        nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
+        if instrumento and nombre != instrumento:
+            continue
+        energia[nombre] = float(np.mean([n.velocity for n in inst.notes])) if inst.notes else 0.0
+    return energia
 
-        datos = {
-            "numero": int(m.number),
-            "compas": str(m.timeSignature) if m.timeSignature else None,
-            "duracion": float(m.duration.quarterLength),
-            "notas": int(len([n for n in m.notes if isinstance(n, note.Note)])),
-            "acordes": int(len([n for n in m.notes if isinstance(n, chord.Chord)])),
-            "ambitus": calcular_ambitus(m),
-            "articulaciones": extraer_articulaciones(m),
-            "dinamicas": extraer_dinamicas(m) + [estimar_dinamica(m)],
-            "crescendo": detectar_crescendo(m),
-            "energia": float(energia_por_compas[i]) if energia_por_compas else None,
-            "variabilidad_densidad": variabilidad[i],
-            "seccion": f"Sección {chr(65 + etiquetas[i])}",
-            "transicion": i in transiciones,
-            "ritmo_armonico": int(ritmo),
-            "curva_tension": float(tension),
-            "complejidad_ritmica": float(ritmo_complejo),
-            "instrumentos_activos": instrumentos_por_compas[i]["instrumentos"],
-            "cantidad_instrumentos": int(instrumentos_por_compas[i]["cantidad"]),
-            "polirritmia": detectar_polirritmia(m)
-        }
-        resultado.append(datos)
+def clasificar_familias(midi):
+    familias = {
+        "Cuerdas": [], "Vientos madera": [], "Metales": [],
+        "Percusión": [], "Teclado": [], "Otros": []
+    }
+    for inst in midi.instruments:
+        nombre = pretty_midi.program_to_instrument_name(inst.program)
+        if inst.program in range(0, 8):
+            familias["Cuerdas"].append(nombre)
+        elif inst.program in range(64, 72):
+            familias["Metales"].append(nombre)
+        elif inst.program in range(72, 80):
+            familias["Vientos madera"].append(nombre)
+        elif inst.is_drum:
+            familias["Percusión"].append(nombre)
+        elif inst.program in range(16, 24):
+            familias["Teclado"].append(nombre)
+        else:
+            familias["Otros"].append(nombre)
+    return familias
 
-    resultado.append({
-        "global": {
-            "motivos_recurrentes": motivos,
-            "progresiones_armonicas": progresiones,
-            "intervalos_predominantes": [int(i) for i in intervalos],
-            "balance_dinamico": {k: float(v) for k, v in balance.items()},
-            "familias_instrumentales": familias,
-            "simetria_formal": float(simetria_formal(compases)),
-            "contrapunto_activo": float(contrapunto_activo(score)),
-            "red_interaccion_musical": red_interaccion(score)
-        }
-    })
+def contrapunto_activo(score, instrumento=None):
+    partes = score.parts
+    if instrumento:
+        partes = [p for p in partes if p.partName == instrumento]
+    if len(partes) < 2:
+        return 0.0
+    entropias = []
+    for p in partes:
+        notas = [n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)]
+        if notas:
+            hist = np.histogram(notas, bins=12)[0]
+            prob = hist / np.sum(hist)
+            entropia = -np.sum(prob * np.log2(prob + 1e-9))
+            entropias.append(entropia)
+    if len(entropias) < 2:
+        return 0.0
+    return float(round(np.std(entropias), 3))
 
-    return resultado
+def red_interaccion(score, instrumento=None):
+    partes = score.parts
+    if instrumento:
+        partes = [p for p in partes if p.partName == instrumento]
+    nodos = defaultdict(set)
+    for p in partes:
+        nombre = p.partName or "Parte"
+        for n in p.flat.notes:
+            tiempo = round(n.offset, 2)
+            nodos[tiempo].add(nombre)
+    conexiones = defaultdict(int)
+    for tiempo, partes in nodos.items():
+        partes = list(partes)
+        for i in range(len(partes)):
+            for j in range(i + 1, len(partes)):
+                par = tuple(sorted([partes[i], partes[j]]))
+                conexiones[par] += 1
+    return {f"{a}-{b}": int(v) for (a, b), v in conexiones.items()}
 
 def calcular_ambitus(m):
     notas = [n for n in m.notes if isinstance(n, note.Note)]
@@ -169,25 +207,33 @@ def calcular_variabilidad_densidad(vectores):
     variabilidad.insert(0, "estable")
     return variabilidad
 
-def extraer_energia_midi(midi_path, total_compases):
-    try:
-        midi = pretty_midi.PrettyMIDI(midi_path)
-        duracion_total = midi.get_end_time()
-        duracion_compas = duracion_total / total_compases
-        energia_por_compas = []
-
-        for i in range(total_compases):
-            inicio = i * duracion_compas
-            fin = (i + 1) * duracion_compas
-            notas = [n for inst in midi.instruments for n in inst.notes if inicio <= n.start < fin]
-            energia = np.mean([n.velocity for n in notas]) if notas else 0
-            energia_por_compas.append(float(round(energia, 2)))
-        return energia_por_compas
-    except Exception:
-        return None
-
-def densidad_instrumental_por_compas(midi_path, total_compases):
+def extraer_energia_midi(midi_path, total_compases, instrumentos_seleccionados=None):
     midi = pretty_midi.PrettyMIDI(midi_path)
+    if instrumentos_seleccionados:
+        midi.instruments = [
+                    inst for inst in midi.instruments
+        if inst.name.strip() in instrumentos_seleccionados
+    ]
+    duracion_total = midi.get_end_time()
+    duracion_compas = duracion_total / total_compases
+    energia_por_compas = []
+
+    for i in range(total_compases):
+        inicio = i * duracion_compas
+        fin = (i + 1) * duracion_compas
+        notas = [n for inst in midi.instruments for n in inst.notes if inicio <= n.start < fin]
+        energia = np.mean([n.velocity for n in notas]) if notas else 0
+        energia_por_compas.append(float(round(energia, 2)))
+    return energia_por_compas
+
+def densidad_instrumental_por_compas(midi_path, total_compases, instrumentos_seleccionados=None):
+    midi = pretty_midi.PrettyMIDI(midi_path)
+    if instrumentos_seleccionados:
+        midi.instruments = [
+            inst for inst in midi.instruments
+            if inst.name.strip() in instrumentos_seleccionados
+        ]
+
     duracion_total = midi.get_end_time()
     duracion_compas = duracion_total / total_compases
     resultado = []
@@ -233,56 +279,6 @@ def complejidad_ritmica(m):
     entropia = -np.sum(prob * np.log2(prob + 1e-9))
     return float(round(entropia, 3))
 
-def motivos_recurrentes(compases, n=3):
-    motivos = {}
-    for m in compases:
-        notas = [n.pitch.midi for n in m.notes if isinstance(n, note.Note)]
-        for i in range(len(notas) - n + 1):
-            motivo = tuple(notas[i:i+n])
-            clave = "-".join(str(p) for p in motivo)
-            motivos[clave] = motivos.get(clave, 0) + 1
-    return {k: int(v) for k, v in motivos.items() if v > 1}
-
-def progresiones_armonicas(score):
-    acordes = score.chordify().recurse().getElementsByClass(chord.Chord)
-    return [c.pitchedCommonName for c in acordes]
-
-def intervalos_predominantes(score):
-    notas = [n for n in score.flat.notes if isinstance(n, note.Note)]
-    intervalos = []
-    for i in range(1, len(notas)):
-        intervalo = notas[i].pitch.midi - notas[i-1].pitch.midi
-        intervalos.append(intervalo)
-    return intervalos
-
-def balance_dinamico(midi):
-    energia = {}
-    for inst in midi.instruments:
-        nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
-        energia[nombre] = float(np.mean([n.velocity for n in inst.notes])) if inst.notes else 0.0
-    return energia
-
-def clasificar_familias(midi):
-    familias = {
-        "Cuerdas": [], "Vientos madera": [], "Metales": [],
-        "Percusión": [], "Teclado": [], "Otros": []
-    }
-    for inst in midi.instruments:
-        nombre = pretty_midi.program_to_instrument_name(inst.program)
-        if inst.program in range(0, 8):
-            familias["Cuerdas"].append(nombre)
-        elif inst.program in range(64, 72):
-            familias["Metales"].append(nombre)
-        elif inst.program in range(72, 80):
-            familias["Vientos madera"].append(nombre)
-        elif inst.is_drum:
-            familias["Percusión"].append(nombre)
-        elif inst.program in range(16, 24):
-            familias["Teclado"].append(nombre)
-        else:
-            familias["Otros"].append(nombre)
-    return familias
-
 def detectar_polirritmia(m):
     duraciones = [n.quarterLength for n in m.notes]
     subdivs = set(int(1 / d) if d < 1 else int(d) for d in duraciones if d > 0)
@@ -302,34 +298,87 @@ def simetria_formal(compases):
     corr = np.corrcoef(A, B)[0, 1]
     return float(round(corr, 3))
 
-def contrapunto_activo(score):
-    partes = score.parts
-    if len(partes) < 2:
-        return 0.0
-    entropias = []
-    for p in partes:
-        notas = [n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)]
-        if notas:
-            hist = np.histogram(notas, bins=12)[0]
-            prob = hist / np.sum(hist)
-            entropia = -np.sum(prob * np.log2(prob + 1e-9))
-            entropias.append(entropia)
-    if len(entropias) < 2:
-        return 0.0
-    return float(round(np.std(entropias), 3))
+# -------------------------------
+# Función principal
+# -------------------------------
 
-def red_interaccion(score):
-    nodos = defaultdict(set)
-    for p in score.parts:
-        nombre = p.partName or "Parte"
-        for n in p.flat.notes:
-            tiempo = round(n.offset, 2)
-            nodos[tiempo].add(nombre)
-    conexiones = defaultdict(int)
-    for tiempo, partes in nodos.items():
-        partes = list(partes)
-        for i in range(len(partes)):
-            for j in range(i + 1, len(partes)):
-                par = tuple(sorted([partes[i], partes[j]]))
-                conexiones[par] += 1
-    return {f"{a}-{b}": int(v) for (a, b), v in conexiones.items()}
+def analizar_compases(nombre_archivo: str, instrumentos_seleccionados=None):
+    ruta = os.path.join("uploads", nombre_archivo)
+    score = converter.parse(ruta)
+    midi = pretty_midi.PrettyMIDI(ruta)
+
+    if instrumentos_seleccionados:
+        midi.instruments = [
+            inst for inst in midi.instruments
+            if inst.name.strip() in instrumentos_seleccionados
+        ]
+        score.parts = [
+            p for p in score.parts
+            if p.partName in instrumentos_seleccionados
+        ]
+
+    compases = score.parts[0].getElementsByClass(stream.Measure)
+    vectores = []
+    resultado = []
+
+    for m in compases:
+        vectores.append(vector_textura(m))
+
+    etiquetas = etiquetar_secciones(vectores, n_clusters=4)
+    transiciones = detectar_transiciones(vectores, threshold=10.0)
+    variabilidad = calcular_variabilidad_densidad(vectores)
+    energia_por_compas = extraer_energia_midi(ruta, len(compases), instrumentos_seleccionados)
+    instrumentos_por_compas = densidad_instrumental_por_compas(ruta, len(compases), instrumentos_seleccionados)
+
+    instrumento = instrumentos_seleccionados[0] if instrumentos_seleccionados else None
+
+    motivos = motivos_recurrentes(compases, instrumento=instrumento)
+    progresiones = progresiones_armonicas(score, instrumento=instrumento)
+    intervalos = intervalos_predominantes(score, instrumento=instrumento)
+    balance = balance_dinamico(midi, instrumento=instrumento)
+    familias = clasificar_familias(midi)
+    contrapunto = contrapunto_activo(score, instrumento=instrumento)
+    red = red_interaccion(score, instrumento=instrumento)
+
+    for i, m in enumerate(compases):
+        ritmo = ritmo_armonico(m)
+        tension = curva_tension(m, ritmo)
+        ritmo_complejo = complejidad_ritmica(m)
+
+        datos = {
+            "numero": int(m.number),
+            "compas": str(m.timeSignature) if m.timeSignature else None,
+            "duracion": float(m.duration.quarterLength),
+            "notas": int(len([n for n in m.notes if isinstance(n, note.Note)])),
+            "acordes": int(len([n for n in m.notes if isinstance(n, chord.Chord)])),
+            "ambitus": calcular_ambitus(m),
+            "articulaciones": extraer_articulaciones(m),
+            "dinamicas": extraer_dinamicas(m) + [estimar_dinamica(m)],
+            "crescendo": detectar_crescendo(m),
+            "energia": float(energia_por_compas[i]) if energia_por_compas else None,
+            "variabilidad_densidad": variabilidad[i],
+            "seccion": f"Sección {chr(65 + etiquetas[i])}",
+            "transicion": i in transiciones,
+            "ritmo_armonico": int(ritmo),
+            "curva_tension": float(tension),
+            "complejidad_ritmica": float(ritmo_complejo),
+            "instrumentos_activos": instrumentos_por_compas[i]["instrumentos"],
+            "cantidad_instrumentos": int(instrumentos_por_compas[i]["cantidad"]),
+            "polirritmia": detectar_polirritmia(m)
+        }
+        resultado.append(datos)
+
+    resultado.append({
+        "global": {
+            "motivos_recurrentes": motivos,
+            "progresiones_armonicas": progresiones,
+            "intervalos_predominantes": [int(i) for i in intervalos],
+            "balance_dinamico": {k: float(v) for k, v in balance.items()},
+            "familias_instrumentales": familias,
+            "simetria_formal": float(simetria_formal(compases)),
+            "contrapunto_activo": float(contrapunto),
+            "red_interaccion_musical": red
+        }
+    })
+
+    return resultado
