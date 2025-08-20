@@ -65,7 +65,7 @@ def densidad_armonica(score):
 
 def variabilidad_intervalica(score, instrumentos_seleccionados=None):
     notas = [
-        n for n in score.flat.notes
+        n for n in score.flatten().notes
         if isinstance(n, note.Note) and (
             not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
         )
@@ -78,7 +78,7 @@ def variabilidad_intervalica(score, instrumentos_seleccionados=None):
 
 def entropia_duracion(score, instrumentos_seleccionados=None):
     duraciones = [
-        n.quarterLength for n in score.flat.notes
+        n.quarterLength for n in score.flatten().notes
         if isinstance(n, note.Note) and (
             not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
         )
@@ -104,7 +104,7 @@ def sincronizacion_entrada(midi, instrumentos_seleccionados=None):
 
 def dispersión_temporal(score, instrumentos_seleccionados=None):
     tiempos = [
-        n.offset for n in score.flat.notes
+        n.offset for n in score.flatten().notes
         if isinstance(n, note.Note) and (
             not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
         )
@@ -113,7 +113,7 @@ def dispersión_temporal(score, instrumentos_seleccionados=None):
 
 def compacidad_melodica(score, instrumentos_seleccionados=None):
     notas = [
-        n.pitch.midi for n in score.flat.notes
+        n.pitch.midi for n in score.flatten().notes
         if isinstance(n, note.Note) and (
             not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
         )
@@ -124,7 +124,7 @@ def compacidad_melodica(score, instrumentos_seleccionados=None):
 
 def repetitividad_motívica(score, n=3, instrumentos_seleccionados=None):
     notas = [
-        n.pitch.midi for n in score.flat.notes
+        n.pitch.midi for n in score.flatten().notes
         if isinstance(n, note.Note) and (
             not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
         )
@@ -136,6 +136,53 @@ def repetitividad_motívica(score, n=3, instrumentos_seleccionados=None):
         motivos[clave] = motivos.get(clave, 0) + 1
     repetidos = [v for v in motivos.values() if v > 1]
     return float(round(np.mean(repetidos), 2)) if repetidos else 0.0
+
+def entropia_melodica(score, instrumentos_seleccionados=None):
+    notas = [
+        n.pitch.midi for n in score.flatten().notes
+        if isinstance(n, note.Note) and (
+            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
+        )
+    ]
+    if not notas:
+        return 0.0
+    hist = np.histogram(notas, bins=12)[0]
+    prob = hist / np.sum(hist)
+    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    return float(round(entropia, 3))
+
+def entropia_ritmica(score, instrumentos_seleccionados=None):
+    duraciones = [
+        n.quarterLength for n in score.flatten().notes
+        if isinstance(n, note.Note) and (
+            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
+        )
+    ]
+    if not duraciones:
+        return 0.0
+    hist = np.histogram(duraciones, bins=8)[0]
+    prob = hist / np.sum(hist)
+    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    return float(round(entropia, 3))
+
+def entropia_armonica(score, instrumentos_seleccionados=None):
+    acordes = score.chordify().recurse().getElementsByClass(chord.Chord)
+    if instrumentos_seleccionados:
+        acordes = [
+            c for c in acordes
+            if any(
+                p.instrumentName in instrumentos_seleccionados
+                for p in c.getContextByClass(stream.Part).getElementsByClass(note.Note)
+                if hasattr(p, 'instrumentName')
+            )
+        ]
+    nombres = [c.pitchedCommonName for c in acordes]
+    if not nombres:
+        return 0.0
+    hist = np.histogram(range(len(nombres)), bins=8)[0]
+    prob = hist / np.sum(hist)
+    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    return float(round(entropia, 3))
 
 def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
     score = carga_score(midi_path)
@@ -152,5 +199,14 @@ def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
         "sincronizacion_entrada": sincronizacion_entrada(midi, instrumentos_seleccionados),
         "dispersión_temporal": dispersión_temporal(score, instrumentos_seleccionados),
         "compacidad_melodica": compacidad_melodica(score, instrumentos_seleccionados),
-        "repetitividad_motívica": repetitividad_motívica(score, n=3, instrumentos_seleccionados=instrumentos_seleccionados)
+        "repetitividad_motívica": repetitividad_motívica(score, n=3, instrumentos_seleccionados=instrumentos_seleccionados),
+        "entropia_melodica": entropia_melodica(score, instrumentos_seleccionados),
+        "entropia_ritmica": entropia_ritmica(score, instrumentos_seleccionados),
+        "entropia_armonica": entropia_armonica(score, instrumentos_seleccionados),
+        "entropia_compuesta": float(round(
+            np.mean([
+                entropia_melodica(score, instrumentos_seleccionados),
+                entropia_ritmica(score, instrumentos_seleccionados),
+                entropia_armonica(score, instrumentos_seleccionados)
+            ]), 3))
     }

@@ -13,7 +13,7 @@ async def obtener_compases(nombre_archivo: str, instrumentos: list[str] = Query(
         return JSONResponse(status_code=404, content={"error": "Archivo no encontrado"})
 
     try:
-        resultado = analizar_compases(ruta, instrumentos_seleccionados=instrumentos)
+        resultado = analizar_compases(nombre_archivo, instrumentos_seleccionados=instrumentos)
         return JSONResponse(content=resultado)
     except Exception as e:
         print("⛔ ERROR en analizar_compases:")

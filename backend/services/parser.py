@@ -1,8 +1,8 @@
 import os
 import pretty_midi
 import numpy as np
-from music21 import converter, note, chord
-from music21 import stream
+from collections import Counter, defaultdict
+from music21 import converter, note, chord, stream
 
 def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
     ruta = os.path.join("uploads", nombre_archivo)
@@ -25,8 +25,9 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
         tempo = round(midi.estimate_tempo(), 2)
         instrumentos = [inst.name or "Instrumento desconocido" for inst in midi.instruments]
         compases_aprox = int(duracion / (60 / tempo) / 4)
-
         instrumento = instrumentos_seleccionados[0] if instrumentos_seleccionados else None
+
+        perfil = perfil_compositivo(score)
 
         return {
             "archivo": nombre_archivo,
@@ -40,7 +41,17 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "balance_dinamico": balance_dinamico(midi, instrumento=instrumento),
             "familias_instrumentales": clasificar_familias(midi),
             "contrapunto_activo": contrapunto_activo(score, instrumento=instrumento),
-            "red_interaccion_musical": red_interaccion(score, instrumento=instrumento)
+            "red_interaccion_musical": red_interaccion(score, instrumento=instrumento),
+            "entropia_ritmica": perfil["entropia_ritmica"],
+            "entropia_melodica": perfil["entropia_melodica"],
+            "entropia_armonica": perfil["entropia_armonica"],
+            "entropia_interaccion": perfil["entropia_interaccion"],
+            "complejidad_total": complejidad_total(score),
+            "firma_metrica": firma_metrica(score),
+            "seccion_aurea": seccion_aurea(score),
+            "variedad_tonal": variedad_tonal(score),
+            "innovacion_estadistica": innovacion_estadistica(score),
+            "firma_fractal": firma_fractal(score)
         }
 
     except Exception as e:
@@ -77,7 +88,7 @@ def intervalos_predominantes(score, instrumento=None):
     partes = score.parts
     if instrumento:
         partes = [p for p in partes if p.partName == instrumento]
-    notas = [n for p in partes for n in p.flat.notes if isinstance(n, note.Note)]
+    notas = [n for p in partes for n in p.flatten().notes if isinstance(n, note.Note)]
     intervalos = [
         notas[i].pitch.midi - notas[i-1].pitch.midi
         for i in range(1, len(notas))
@@ -124,7 +135,7 @@ def contrapunto_activo(score, instrumento=None):
         return 0.0
     entropias = []
     for p in partes:
-        notas = [n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)]
+        notas = [n.pitch.midi for n in p.flatten().notes if isinstance(n, note.Note)]
         if notas:
             hist = np.histogram(notas, bins=12)[0]
             prob = hist / np.sum(hist)
@@ -135,7 +146,6 @@ def contrapunto_activo(score, instrumento=None):
     return float(round(np.std(entropias), 3))
 
 def red_interaccion(score, instrumento=None):
-    from collections import defaultdict
     partes = score.parts
     if instrumento:
         partes = [p for p in partes if p.partName == instrumento]
@@ -143,7 +153,7 @@ def red_interaccion(score, instrumento=None):
     nodos = defaultdict(set)
     for p in partes:
         nombre = p.partName or "Parte"
-        for n in p.flat.notes:
+        for n in p.flatten().notes:
             tiempo = round(n.offset, 2)
             nodos[tiempo].add(nombre)
 
@@ -155,3 +165,85 @@ def red_interaccion(score, instrumento=None):
                 par = tuple(sorted([partes[i], partes[j]]))
                 conexiones[par] += 1
     return {f"{a}-{b}": int(v) for (a, b), v in conexiones.items()}
+
+# -------------------------------
+# Métricas globales por obra completa
+# -------------------------------
+
+def perfil_compositivo(score):
+    return {
+        "entropia_ritmica": entropia_ritmica(score),
+        "entropia_melodica": entropia_melodica(score),
+        "entropia_armonica": entropia_armonica(score),
+        "entropia_interaccion": entropia_interaccion(score)
+    }
+
+def entropia_ritmica(score):
+    duraciones = [n.quarterLength for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+    if not duraciones:
+        return 0.0
+    hist = np.histogram(duraciones, bins=16)[0]
+    prob = hist / np.sum(hist)
+    return float(round(-np.sum(prob * np.log2(prob + 1e-9)), 3))
+
+def entropia_melodica(score):
+    alturas = [n.pitch.midi for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+    if not alturas:
+        return 0.0
+    hist = np.histogram(alturas, bins=24)[0]
+    prob = hist / np.sum(hist)
+    return float(round(-np.sum(prob * np.log2(prob + 1e-9)), 3))
+
+def entropia_armonica(score):
+    acordes = [c.root().name for p in score.parts for c in p.chordify().recurse().getElementsByClass(chord.Chord)]
+    if not acordes:
+        return 0.0
+    letras = [ord(a[0]) for a in acordes]
+    hist = np.histogram(letras, bins=12)[0]
+    prob = hist / np.sum(hist)
+    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    return float(round(entropia, 3))
+
+def entropia_interaccion(score):
+    red = red_interaccion(score)
+    grados = [v for v in red.values()]
+    if not grados:
+        return 0.0
+    prob = np.array(grados) / np.sum(grados)
+    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    return float(round(entropia, 3))
+
+def complejidad_total(score):
+    perfil = perfil_compositivo(score)
+    return float(round(sum(perfil.values()), 3))
+
+def firma_metrica(score):
+    compases = score.parts[0].getElementsByClass(stream.Measure)
+    duraciones = [m.duration.quarterLength for m in compases]
+    return dict(Counter(duraciones))
+
+def seccion_aurea(score):
+    return float(round(score.highestTime * 0.618, 2))
+
+def variedad_tonal(score):
+    tonalidades = set()
+    for el in score.recurse():
+        if el.classes[0] == 'Key':
+            tonalidades.add(el.tonic.name)
+    return len(tonalidades)
+
+def innovacion_estadistica(score):
+    perfil = perfil_compositivo(score)
+    return float(round(np.mean(list(perfil.values())), 3))
+
+def firma_fractal(score):
+    notas = [n.offset for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+    if len(notas) < 2:
+        return 0.0
+    escalas = [1, 2, 4, 8]
+    variaciones = []
+    for s in escalas:
+        agrupadas = [notas[i:i+s] for i in range(0, len(notas), s)]
+        medias = [np.mean(g) for g in agrupadas if g]
+        variaciones.append(np.std(medias))
+    return float(round(np.std(variaciones), 3))
