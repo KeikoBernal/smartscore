@@ -4,6 +4,12 @@ import numpy as np
 from collections import Counter, defaultdict
 from music21 import converter, note, chord, stream
 
+def validar_metrica(valor, nombre):
+    if isinstance(valor, (int, float)) and np.isfinite(valor):
+        return float(round(valor, 3))
+    print(f"[WARN] Métrica inválida: {nombre} → {valor}")
+    return None
+
 def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
     ruta = os.path.join("uploads", nombre_archivo)
 
@@ -24,15 +30,15 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
         duracion = round(midi.get_end_time(), 2)
         tempo = round(midi.estimate_tempo(), 2)
         instrumentos = [inst.name or "Instrumento desconocido" for inst in midi.instruments]
-        compases_aprox = int(duracion / (60 / tempo) / 4)
+        compases_aprox = int(duracion / (60 / tempo) / 4) if tempo else 0
         instrumento = instrumentos_seleccionados[0] if instrumentos_seleccionados else None
 
         perfil = perfil_compositivo(score)
 
         return {
             "archivo": nombre_archivo,
-            "duracion_segundos": duracion,
-            "tempo_promedio": tempo,
+            "duracion_segundos": validar_metrica(duracion, "duracion_segundos"),
+            "tempo_promedio": validar_metrica(tempo, "tempo_promedio"),
             "instrumentos_detectados": instrumentos,
             "compases_estimados": compases_aprox,
             "motivos_recurrentes": motivos_recurrentes(score, instrumento=instrumento),
@@ -40,25 +46,27 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "intervalos_predominantes": intervalos_predominantes(score, instrumento=instrumento),
             "balance_dinamico": balance_dinamico(midi, instrumento=instrumento),
             "familias_instrumentales": clasificar_familias(midi),
-            "contrapunto_activo": contrapunto_activo(score, instrumento=instrumento),
+            "contrapunto_activo": validar_metrica(contrapunto_activo(score, instrumento=instrumento), "contrapunto_activo"),
             "red_interaccion_musical": red_interaccion(score, instrumento=instrumento),
-            "entropia_ritmica": perfil["entropia_ritmica"],
-            "entropia_melodica": perfil["entropia_melodica"],
-            "entropia_armonica": perfil["entropia_armonica"],
-            "entropia_interaccion": perfil["entropia_interaccion"],
-            "complejidad_total": complejidad_total(score),
+            "entropia_ritmica": validar_metrica(perfil["entropia_ritmica"], "entropia_ritmica"),
+            "entropia_melodica": validar_metrica(perfil["entropia_melodica"], "entropia_melodica"),
+            "entropia_armonica": validar_metrica(perfil["entropia_armonica"], "entropia_armonica"),
+            "entropia_interaccion": validar_metrica(perfil["entropia_interaccion"], "entropia_interaccion"),
+            "complejidad_total": validar_metrica(complejidad_total(score), "complejidad_total"),
             "firma_metrica": firma_metrica(score),
-            "seccion_aurea": seccion_aurea(score),
-            "variedad_tonal": variedad_tonal(score),
-            "innovacion_estadistica": innovacion_estadistica(score),
-            "firma_fractal": firma_fractal(score)
+            "seccion_aurea": validar_metrica(seccion_aurea(score), "seccion_aurea"),
+            "variedad_tonal": validar_metrica(variedad_tonal(score), "variedad_tonal"),
+            "innovacion_estadistica": validar_metrica(innovacion_estadistica(score), "innovacion_estadistica"),
+            "firma_fractal": validar_metrica(firma_fractal(score), "firma_fractal")
         }
 
     except Exception as e:
-        return {"error": f"No se pudo analizar el archivo: {str(e)}"}
+        return {
+            "error": f"No se pudo analizar el archivo: {str(e)}"
+        }
 
 # -------------------------------
-# Funciones auxiliares con filtro
+# Funciones auxiliares
 # -------------------------------
 
 def motivos_recurrentes(score, n=3, instrumento=None):
@@ -167,7 +175,7 @@ def red_interaccion(score, instrumento=None):
     return {f"{a}-{b}": int(v) for (a, b), v in conexiones.items()}
 
 # -------------------------------
-# Métricas globales por obra completa
+# Métricas globales
 # -------------------------------
 
 def perfil_compositivo(score):
@@ -198,7 +206,9 @@ def entropia_armonica(score):
     acordes = [c.root().name for p in score.parts for c in p.chordify().recurse().getElementsByClass(chord.Chord)]
     if not acordes:
         return 0.0
-    letras = [ord(a[0]) for a in acordes]
+    letras = [ord(a[0]) for a in acordes if a]  # blindaje por si hay acordes vacíos
+    if not letras:
+        return 0.0
     hist = np.histogram(letras, bins=12)[0]
     prob = hist / np.sum(hist)
     entropia = -np.sum(prob * np.log2(prob + 1e-9))
@@ -215,7 +225,8 @@ def entropia_interaccion(score):
 
 def complejidad_total(score):
     perfil = perfil_compositivo(score)
-    return float(round(sum(perfil.values()), 3))
+    valores = [v for v in perfil.values() if isinstance(v, (int, float)) and np.isfinite(v)]
+    return float(round(sum(valores), 3)) if valores else 0.0
 
 def firma_metrica(score):
     compases = score.parts[0].getElementsByClass(stream.Measure)
@@ -234,7 +245,8 @@ def variedad_tonal(score):
 
 def innovacion_estadistica(score):
     perfil = perfil_compositivo(score)
-    return float(round(np.mean(list(perfil.values())), 3))
+    valores = [v for v in perfil.values() if isinstance(v, (int, float)) and np.isfinite(v)]
+    return float(round(np.mean(valores), 3)) if valores else 0.0
 
 def firma_fractal(score):
     notas = [n.offset for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]

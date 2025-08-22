@@ -1,8 +1,7 @@
-from music21 import converter, stream, note, chord, pitch
+from music21 import converter, stream, note
 import numpy as np
 import pretty_midi
 from collections import defaultdict
-import os
 
 # -------------------------------
 # Funciones auxiliares
@@ -116,12 +115,10 @@ def contrapunto_activo_por_compas(m):
 # Función principal
 # -------------------------------
 
-def analizar_compases(nombre_archivo: str, instrumentos_seleccionados=None):
-    ruta = os.path.join("uploads", nombre_archivo)
+def analizar_compases(ruta: str, instrumentos_seleccionados=None):
     score = converter.parse(ruta)
     midi = pretty_midi.PrettyMIDI(ruta)
 
-    # Filtrado por instrumento (sin modificar score.parts directamente)
     if instrumentos_seleccionados:
         midi.instruments = [
             inst for inst in midi.instruments
@@ -137,14 +134,21 @@ def analizar_compases(nombre_archivo: str, instrumentos_seleccionados=None):
     else:
         score_filtrado = score
 
-    compases = score_filtrado.parts[0].getElementsByClass(stream.Measure)
+    if not score_filtrado.parts:
+        return []
+
+    compases = [
+        m for m in score_filtrado.parts[0].getElementsByClass(stream.Measure)
+        if any(isinstance(n, note.Note) for n in m.notes)
+    ]
+
     resultado = []
 
     for m in compases:
         datos = {
             "numero": int(m.number),
             "duracion": float(m.duration.quarterLength),
-            "notas": int(len([n for n in m.notes if isinstance(n, note.Note)])),
+            "notas": len([n for n in m.notes if isinstance(n, note.Note)]),
             "ambitus": calcular_ambitus(m),
             "complejidad_ritmica": complejidad_ritmica(m),
             "complejidad_ritmica_cuantificable": complejidad_ritmica_cuantificable(m),
@@ -159,9 +163,9 @@ def analizar_compases(nombre_archivo: str, instrumentos_seleccionados=None):
         resultado.append(datos)
 
     resultado.append({
-        "global": {
-            "regularidad_metrica": regularidad_metrica(compases)
-        }
-    })
+    "global_": {
+        "regularidad_metrica": regularidad_metrica(compases)
+    }
+})
 
     return resultado
