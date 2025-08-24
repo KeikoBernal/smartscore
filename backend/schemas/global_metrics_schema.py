@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, List
+from typing import Dict, List, Union
 
 class ParteInfo(BaseModel):
     nombre: str
@@ -22,3 +22,12 @@ class GlobalMetrics(BaseModel):
     partes_detectadas: List[ParteInfo]
     porcentaje_participacion: Dict[str, float]
     cantidad_total_notas: int
+
+class ErrorResponse(BaseModel):
+    error: str
+    archivo: str
+    instrumentos: List[str]
+
+class MultiFileMetrics(BaseModel):
+    resultados: List[GlobalMetrics]
+    errores: List[ErrorResponse] = []
