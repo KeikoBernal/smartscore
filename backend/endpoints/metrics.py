@@ -29,7 +29,9 @@ async def obtener_metricas(nombre_archivo: str, instrumentos: list[str] = Query(
         "duracion_segundos", "tempo_promedio", "entropia_melodica",
         "entropia_ritmica", "entropia_armonica", "entropia_interaccion",
         "complejidad_total", "firma_metrica", "progresiones_armonicas",
-        "contrapunto_activo", "familias_instrumentales"
+        "contrapunto_activo", "familias_instrumentales",
+        "partes_detectadas", "porcentaje_participacion",
+        "cantidad_total_notas"
     ]
 
     if any(k not in resultado or resultado[k] is None for k in campos_obligatorios):

@@ -1,5 +1,9 @@
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List
+
+class ParteInfo(BaseModel):
+    nombre: str
+    notas: int
 
 class GlobalMetrics(BaseModel):
     archivo: str
@@ -15,3 +19,6 @@ class GlobalMetrics(BaseModel):
     progresiones_armonicas: List[str]
     contrapunto_activo: float
     familias_instrumentales: Dict[str, List[str]]
+    partes_detectadas: List[ParteInfo]
+    porcentaje_participacion: Dict[str, float]
+    cantidad_total_notas: int

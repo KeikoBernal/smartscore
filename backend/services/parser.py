@@ -10,6 +10,18 @@ def validar_metrica(valor, nombre):
     print(f"[WARN] Métrica inválida: {nombre} → {valor}")
     return None
 
+def instrumentos_detectados(score):
+    return [p.partName or "Parte sin nombre" for p in score.parts]
+
+def cantidad_total_notas(score):
+    """
+    Calcula la cantidad total de notas en todas las partes del score.
+    """
+    return sum(
+        len([n for n in p.flatten().notes if isinstance(n, note.Note)])
+        for p in score.parts
+    )
+
 def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
     ruta = os.path.join("uploads", nombre_archivo)
 
@@ -29,7 +41,6 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
 
         duracion = round(midi.get_end_time(), 2)
         tempo = round(midi.estimate_tempo(), 2)
-        instrumentos = [inst.name or "Instrumento desconocido" for inst in midi.instruments]
         compases_aprox = int(duracion / (60 / tempo) / 4) if tempo else 0
         instrumento = instrumentos_seleccionados[0] if instrumentos_seleccionados else None
 
@@ -39,13 +50,14 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "archivo": nombre_archivo,
             "duracion_segundos": validar_metrica(duracion, "duracion_segundos"),
             "tempo_promedio": validar_metrica(tempo, "tempo_promedio"),
-            "instrumentos_detectados": instrumentos,
+            "instrumentos_detectados": instrumentos_detectados(score),
+            "cantidad_total_notas": cantidad_total_notas(score),
             "compases_estimados": compases_aprox,
             "motivos_recurrentes": motivos_recurrentes(score, instrumento=instrumento),
             "progresiones_armonicas": progresiones_armonicas(score, instrumento=instrumento),
             "intervalos_predominantes": intervalos_predominantes(score, instrumento=instrumento),
             "balance_dinamico": balance_dinamico(midi, instrumento=instrumento),
-            "familias_instrumentales": clasificar_familias(midi),
+            "familias_instrumentales": clasificar_familias(score),
             "contrapunto_activo": validar_metrica(contrapunto_activo(score, instrumento=instrumento), "contrapunto_activo"),
             "red_interaccion_musical": red_interaccion(score, instrumento=instrumento),
             "entropia_ritmica": validar_metrica(perfil["entropia_ritmica"], "entropia_ritmica"),
@@ -57,7 +69,9 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "seccion_aurea": validar_metrica(seccion_aurea(score), "seccion_aurea"),
             "variedad_tonal": validar_metrica(variedad_tonal(score), "variedad_tonal"),
             "innovacion_estadistica": validar_metrica(innovacion_estadistica(score), "innovacion_estadistica"),
-            "firma_fractal": validar_metrica(firma_fractal(score), "firma_fractal")
+            "firma_fractal": validar_metrica(firma_fractal(score), "firma_fractal"),
+            "partes_detectadas": partes_detectadas(score),
+            "porcentaje_participacion": participacion_por_partes(score)
         }
 
     except Exception as e:
@@ -114,25 +128,48 @@ def balance_dinamico(midi, instrumento=None):
         ) if inst.notes else 0.0
     return energia
 
-def clasificar_familias(midi):
+def clasificar_familias(score):
     familias = {
         "Cuerdas": [], "Vientos madera": [], "Metales": [],
         "Percusión": [], "Teclado": [], "Otros": []
     }
-    for inst in midi.instruments:
-        nombre = pretty_midi.program_to_instrument_name(inst.program)
-        if inst.program in range(0, 8):
-            familias["Cuerdas"].append(nombre)
-        elif inst.program in range(64, 72):
-            familias["Metales"].append(nombre)
-        elif inst.program in range(72, 80):
-            familias["Vientos madera"].append(nombre)
-        elif inst.is_drum:
-            familias["Percusión"].append(nombre)
-        elif inst.program in range(16, 24):
-            familias["Teclado"].append(nombre)
-        else:
-            familias["Otros"].append(nombre)
+
+    instrumento_a_familia = {
+        "Violin I": "Cuerdas", "Violin II": "Cuerdas", "Violin": "Cuerdas",
+        "Viola": "Cuerdas", "Cello": "Cuerdas", "Contrabass": "Cuerdas",
+        "Harp": "Cuerdas", "Classical Guitar": "Cuerdas", "Mandolin": "Cuerdas", "Lute": "Cuerdas",
+        "Flute": "Vientos madera", "Piccolo": "Vientos madera", "Clarinet": "Vientos madera",
+        "Bass Clarinet": "Vientos madera", "Alto Clarinet": "Vientos madera", "Contrabass Clarinet": "Vientos madera",
+        "Oboe": "Vientos madera", "English Horn": "Vientos madera", "Bassoon": "Vientos madera", "Contrabassoon": "Vientos madera",
+        "Saxophone": "Vientos madera",
+        "Trumpet": "Metales", "Piccolo Trumpet": "Metales", "French Horn": "Metales", "Horn": "Metales",
+        "Trombone": "Metales", "Bass Trombone": "Metales", "Tuba": "Metales",
+        "Euphonium": "Metales", "Cornet": "Metales", "Helicon": "Metales", "Fiscornio": "Metales",
+        "Timpani": "Percusión", "Marimba": "Percusión", "Xylophone": "Percusión", "Vibraphone": "Percusión",
+        "Glockenspiel": "Percusión", "Tubular Bells": "Percusión", "Celesta": "Percusión",
+        "Bass Drum": "Percusión", "Snare Drum": "Percusión", "Cymbals": "Percusión", "Triangle": "Percusión",
+        "Tambourine": "Percusión", "Gong": "Percusión", "Woodblock": "Percusión", "Castanets": "Percusión",
+        "Piano": "Teclado", "Harpsichord": "Teclado", "Organ": "Teclado", "Clavichord": "Teclado",
+        "Harmonium": "Teclado", "Glass Harmonica": "Teclado"
+    }
+
+    claves_ordenadas = sorted(instrumento_a_familia.keys(), key=lambda x: -len(x))
+
+    def encontrar_familia(nombre):
+        nombre_normalizado = nombre.strip().lower()
+        for clave in claves_ordenadas:
+            clave_normalizada = clave.lower()
+            if nombre_normalizado == clave_normalizada:
+                return instrumento_a_familia[clave]
+            if nombre_normalizado.startswith(clave_normalizada):
+                                return instrumento_a_familia[clave]
+        return "Otros"
+
+    for p in score.parts:
+        nombre = p.partName or "Parte sin nombre"
+        familia = encontrar_familia(nombre)
+        familias[familia].append(nombre)
+
     return familias
 
 def contrapunto_activo(score, instrumento=None):
@@ -174,6 +211,32 @@ def red_interaccion(score, instrumento=None):
                 conexiones[par] += 1
     return {f"{a}-{b}": int(v) for (a, b), v in conexiones.items()}
 
+def partes_detectadas(score):
+    partes_info = []
+    for p in score.parts:
+        nombre = p.partName or "Parte sin nombre"
+        notas = [n for n in p.flatten().notes if isinstance(n, note.Note)]
+        partes_info.append({
+            "nombre": nombre,
+            "notas": len(notas)
+        })
+    return partes_info
+
+def participacion_por_partes(score):
+    conteo = {}
+    total = 0
+    for p in score.parts:
+        nombre = p.partName or "Parte sin nombre"
+        notas = [n for n in p.flatten().notes if isinstance(n, note.Note)]
+        conteo[nombre] = len(notas)
+        total += len(notas)
+
+    return {
+        nombre: round((cantidad / total) * 100, 2)
+        for nombre, cantidad in conteo.items()
+        if total > 0
+    }
+
 # -------------------------------
 # Métricas globales
 # -------------------------------
@@ -206,7 +269,7 @@ def entropia_armonica(score):
     acordes = [c.root().name for p in score.parts for c in p.chordify().recurse().getElementsByClass(chord.Chord)]
     if not acordes:
         return 0.0
-    letras = [ord(a[0]) for a in acordes if a]  # blindaje por si hay acordes vacíos
+    letras = [ord(a[0]) for a in acordes if a]
     if not letras:
         return 0.0
     hist = np.histogram(letras, bins=12)[0]
