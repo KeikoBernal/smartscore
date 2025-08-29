@@ -1,0 +1,11 @@
+git status
+git add .
+git commit -m "correccion de metricas"
+git push origin main
+
+source backend/venv/Scripts/activate
+
+uvicorn backend.main:app --reload
+
+cd frontend
+npm run dev

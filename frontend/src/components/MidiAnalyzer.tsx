@@ -1,47 +1,44 @@
 import { useState } from 'react';
-import {
-  subirArchivo,
-  obtenerMetricasGlobales,
-  obtenerCompases,
-  obtenerMixtas,
-} from '../services/api';
+import { useMidiAnalysis } from '../hooks/useMidiAnalysis';
 
-type Resultado = {
-  mensaje?: string;
-  nombre?: string;
-  error?: string;
-  [clave: string]: any;
-};
+const CATEGORIAS = [
+  'instrumentales',
+  'melodicas',
+  'ritmicas',
+  'armonicas',
+  'texturales',
+  'formales',
+  'interaccion',
+  'comparativas',
+  'diferenciadoras',
+];
+
+const MODOS = ['global', 'compases', 'mixtas', 'todos'];
 
 export default function MidiAnalyzer() {
-  const [archivo, setArchivo] = useState<File | null>(null);
-  const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [modo, setModo] = useState<'global' | 'compases' | 'mixtas'>('global');
+  const {
+    archivo,
+    setArchivo,
+    subirYPreparar,
+    analizar,
+    resultado,
+    modo,
+    setModo,
+    categoria,
+    setCategoria,
+    instrumentosDetectados,
+    instrumentoPendiente,
+    setInstrumentoPendiente,
+    setInstrumentoSeleccionado,
+    cargando,
+  } = useMidiAnalysis();
 
-  const handleUpload = async () => {
-    if (!archivo) return;
+  const [mostrarSelector, setMostrarSelector] = useState(false);
 
-    const formData = new FormData();
-    formData.append('file', archivo); // ✅ Campo corregido
-
-    try {
-      await subirArchivo(formData);
-
-      let res;
-      if (modo === 'global') {
-        res = await obtenerMetricasGlobales(archivo.name);
-      } else if (modo === 'compases') {
-        res = await obtenerCompases(archivo.name);
-      } else {
-        res = await obtenerMixtas(archivo.name);
-      }
-
-      setResultado(res.data);
-    } catch (err: any) {
-      setResultado({
-        error: err.response?.data?.error || 'Error desconocido',
-      });
-    }
+  const iniciarAnalisis = () => {
+    const instrumentoFinal = instrumentoPendiente.trim();
+    setInstrumentoSeleccionado(instrumentoFinal); // actualiza el estado visible
+    analizar(instrumentoFinal); // ejecuta el análisis con '' si no hay filtro
   };
 
   return (
@@ -49,47 +46,93 @@ export default function MidiAnalyzer() {
       <input
         type="file"
         accept=".mid"
-        onChange={e => setArchivo(e.target.files?.[0] || null)}
+        onChange={e => {
+          const file = e.target.files?.[0] || null;
+          if (file) subirYPreparar(file);
+        }}
       />
 
-      <div className="flex gap-2">
-        <button
-          onClick={() => setModo('global')}
-          className={`px-3 py-1 rounded ${
-            modo === 'global' ? 'bg-blue-700' : 'bg-blue-500'
-          } text-white`}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Seleccionar categoría de métricas
+        </label>
+        <select
+          value={categoria}
+          onChange={e => setCategoria(e.target.value)}
+          className="px-2 py-1 border rounded"
         >
-          Global
-        </button>
-        <button
-          onClick={() => setModo('compases')}
-          className={`px-3 py-1 rounded ${
-            modo === 'compases' ? 'bg-green-700' : 'bg-green-500'
-          } text-white`}
-        >
-          Compases
-        </button>
-        <button
-          onClick={() => setModo('mixtas')}
-          className={`px-3 py-1 rounded ${
-            modo === 'mixtas' ? 'bg-purple-700' : 'bg-purple-500'
-          } text-white`}
-        >
-          Mixtas
-        </button>
+          {CATEGORIAS.map((cat, index) => (
+            <option key={index} value={cat}>
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
+            </option>
+          ))}
+        </select>
       </div>
 
-      <button
-        onClick={handleUpload}
-        className="px-4 py-2 bg-black text-white rounded"
-      >
-        Analizar
-      </button>
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">
+          Seleccionar modo de análisis
+        </label>
+        <select
+          value={modo}
+          onChange={e => setModo(e.target.value as typeof modo)}
+          className="px-2 py-1 border rounded"
+        >
+          {MODOS.map((m, index) => (
+            <option key={index} value={m}>
+              {m.charAt(0).toUpperCase() + m.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {archivo && (
+        <div className="space-y-2">
+          <button
+            onClick={() => setMostrarSelector(!mostrarSelector)}
+            className="px-3 py-1 bg-gray-700 text-white rounded"
+          >
+            Seleccionar instrumento
+          </button>
+
+          {mostrarSelector && (
+            <select
+              value={instrumentoPendiente}
+              onChange={e => setInstrumentoPendiente(e.target.value)}
+              className="px-2 py-1 border rounded"
+            >
+              <option value="">-- Sin filtro de instrumento --</option>
+              {instrumentosDetectados.map((nombre, index) => (
+                <option key={index} value={nombre}>
+                  {nombre}
+                </option>
+              ))}
+            </select>
+          )}
+
+          <button
+            onClick={iniciarAnalisis}
+            className="px-3 py-1 bg-green-600 text-white rounded"
+            disabled={cargando}
+          >
+            Iniciar análisis
+          </button>
+
+          <p className="text-sm text-gray-700">
+            Instrumento seleccionado:{' '}
+            <strong>{instrumentoPendiente.trim() || 'Todos'}</strong>
+          </p>
+        </div>
+      )}
 
       {resultado && (
         <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-[500px]">
           {JSON.stringify(resultado, null, 2)}
         </pre>
+      )}
+
+      {cargando && (
+        <p className="text-sm text-blue-600">Analizando archivo...</p>
       )}
     </div>
   );

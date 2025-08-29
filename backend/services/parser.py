@@ -14,9 +14,6 @@ def instrumentos_detectados(score):
     return [p.partName or "Parte sin nombre" for p in score.parts]
 
 def cantidad_total_notas(score):
-    """
-    Calcula la cantidad total de notas en todas las partes del score.
-    """
     return sum(
         len([n for n in p.flatten().notes if isinstance(n, note.Note)])
         for p in score.parts
@@ -27,22 +24,34 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
 
     try:
         midi = pretty_midi.PrettyMIDI(ruta)
-        score = converter.parse(ruta)
+        score_original = converter.parse(ruta)
+
+        instrumento = None
+        score = score_original
 
         if instrumentos_seleccionados:
+            instrumentos_normalizados = [i.strip().lower() for i in instrumentos_seleccionados]
+
             midi.instruments = [
                 inst for inst in midi.instruments
-                if inst.name.strip() in instrumentos_seleccionados
+                if inst.name.strip().lower() in instrumentos_normalizados
             ]
-            score.parts = [
-                p for p in score.parts
-                if p.partName in instrumentos_seleccionados
+
+            partes_filtradas = [
+                p for p in score_original.parts
+                if (p.partName or "").strip().lower() in instrumentos_normalizados
             ]
+
+            score_filtrado = stream.Score()
+            for parte in partes_filtradas:
+                score_filtrado.append(parte)
+
+            score = score_filtrado
+            instrumento = instrumentos_seleccionados[0]
 
         duracion = round(midi.get_end_time(), 2)
         tempo = round(midi.estimate_tempo(), 2)
         compases_aprox = int(duracion / (60 / tempo) / 4) if tempo else 0
-        instrumento = instrumentos_seleccionados[0] if instrumentos_seleccionados else None
 
         perfil = perfil_compositivo(score)
 
@@ -78,7 +87,6 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
         return {
             "error": f"No se pudo analizar el archivo: {str(e)}"
         }
-
 # -------------------------------
 # Funciones auxiliares
 # -------------------------------

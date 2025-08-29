@@ -1,41 +1,56 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Query
 from pathlib import Path
 from backend.services.compas_parser import analizar_compases
-from backend.schemas.compas_metrics_schema import CompasAnalisisResponse, ErrorResponse
-from typing import Union
+from backend.schemas.compas_metrics_schema import CompasAnalisisLote, CompasPorArchivo
+from backend.schemas.error_response import ErrorResponse
+from typing import Union, List
+import traceback
 
 router = APIRouter()
-
 BASE_UPLOADS = Path(__file__).resolve().parent.parent.parent / "uploads"
 
-@router.get("/{nombre_archivo}", response_model=Union[CompasAnalisisResponse, ErrorResponse])
-def obtener_metricas_compases(nombre_archivo: str):
-    archivo = Path(nombre_archivo).name
-    ruta = BASE_UPLOADS / archivo
+@router.get("/", response_model=Union[CompasAnalisisLote, ErrorResponse])
+def obtener_metricas_compases_lote(
+    archivos: List[str] = Query(...),
+    instrumentos: List[str] = Query(None)
+):
+    resultados: List[CompasPorArchivo] = []
+    errores: List[ErrorResponse] = []
 
-    print(f"[DEBUG] Buscando archivo en: {ruta.resolve()}")
+    for nombre_archivo in archivos:
+        archivo = Path(nombre_archivo).name
+        ruta = BASE_UPLOADS / archivo
 
-    if not ruta.exists():
-        return ErrorResponse(
-            error="Archivo no encontrado",
-            archivo=archivo,
-            instrumentos=[]
+        print(f"[DEBUG] Buscando archivo en: {ruta.resolve()}")
+
+        if not ruta.exists():
+            errores.append(ErrorResponse(
+                error="Archivo no encontrado",
+                archivo=archivo,
+                instrumentos=instrumentos or []
+            ))
+            continue
+
+        try:
+            resultado = analizar_compases(str(ruta), instrumentos_seleccionados=instrumentos)
+            resultados.append(CompasPorArchivo(
+                archivo=archivo,
+                instrumentos=instrumentos or [],
+                compases=resultado
+            ))
+        except Exception as e:
+            print(f"[ERROR] Fallo al analizar compases: {e}")
+            errores.append(ErrorResponse(
+                error="Error al procesar el archivo MIDI",
+                archivo=archivo,
+                instrumentos=instrumentos or []
+            ))
+
+    if not resultados:
+        return errores[0] if errores else ErrorResponse(
+            error="Sin resultados válidos",
+            archivo="",
+            instrumentos=instrumentos or []
         )
 
-    try:
-        resultado = analizar_compases(str(ruta))
-        instrumentos = []  # Puedes extraerlos si lo deseas
-
-        return CompasAnalisisResponse(
-            archivo=archivo,
-            instrumentos=instrumentos,
-            compases=resultado
-        )
-
-    except Exception as e:
-        print(f"[ERROR] Fallo al analizar compases: {e}")
-        return ErrorResponse(
-            error="Error al procesar el archivo MIDI",
-            archivo=archivo,
-            instrumentos=[]
-        )
+    return CompasAnalisisLote(resultados=resultados, errores=errores)

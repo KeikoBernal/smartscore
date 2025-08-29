@@ -12,8 +12,21 @@ async def obtener_metricas_multiples(
     archivos: List[str] = Query(...),
     instrumentos: List[str] = Query(None)
 ):
-    resultados = []
-    errores = []
+    resultados: List[GlobalMetrics] = []
+    errores: List[ErrorResponse] = []
+
+    campos_obligatorios = [
+        "duracion_segundos", "tempo_promedio", "entropia_melodica",
+        "entropia_ritmica", "entropia_armonica", "entropia_interaccion",
+        "complejidad_total", "firma_metrica", "progresiones_armonicas",
+        "contrapunto_activo", "familias_instrumentales",
+        "partes_detectadas", "porcentaje_participacion",
+        "cantidad_total_notas", "compases_estimados",
+        "motivos_recurrentes", "intervalos_predominantes",
+        "balance_dinamico", "red_interaccion_musical",
+        "seccion_aurea", "variedad_tonal",
+        "innovacion_estadistica", "firma_fractal"
+    ]
 
     for nombre_archivo in archivos:
         ruta = os.path.join("uploads", nombre_archivo)
@@ -25,7 +38,7 @@ async def obtener_metricas_multiples(
             ))
             continue
 
-        resultado = analizar_midi(nombre_archivo, instrumentos_seleccionados=instrumentos)
+        resultado = analizar_midi(nombre_archivo, instrumentos_seleccionados=instrumentos or [])
         if "error" in resultado:
             errores.append(ErrorResponse(
                 error=resultado["error"],
@@ -33,15 +46,6 @@ async def obtener_metricas_multiples(
                 instrumentos=instrumentos or []
             ))
             continue
-
-        campos_obligatorios = [
-            "duracion_segundos", "tempo_promedio", "entropia_melodica",
-            "entropia_ritmica", "entropia_armonica", "entropia_interaccion",
-            "complejidad_total", "firma_metrica", "progresiones_armonicas",
-            "contrapunto_activo", "familias_instrumentales",
-            "partes_detectadas", "porcentaje_participacion",
-            "cantidad_total_notas"
-        ]
 
         if any(k not in resultado or resultado[k] is None for k in campos_obligatorios):
             errores.append(ErrorResponse(
@@ -58,6 +62,10 @@ async def obtener_metricas_multiples(
         ))
 
     if not resultados:
-        return errores[0] if errores else ErrorResponse(error="Sin resultados válidos", archivo="", instrumentos=[])
+        return errores[0] if errores else ErrorResponse(
+            error="Sin resultados válidos",
+            archivo="",
+            instrumentos=instrumentos or []
+        )
 
     return MultiFileMetrics(resultados=resultados, errores=errores)

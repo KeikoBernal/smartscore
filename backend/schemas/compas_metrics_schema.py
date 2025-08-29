@@ -1,5 +1,6 @@
 from pydantic import BaseModel
-from typing import List, Optional, Union
+from typing import List, Union, Dict
+from backend.schemas.error_response import ErrorResponse
 
 class CompasAnalisis(BaseModel):
     numero: int
@@ -19,12 +20,11 @@ class CompasAnalisis(BaseModel):
 class GlobalMetric(BaseModel):
     global_: dict  # Evita conflicto con palabra reservada 'global'
 
-class CompasAnalisisResponse(BaseModel):
+class CompasPorArchivo(BaseModel):
     archivo: str
     instrumentos: List[str]
     compases: List[Union[CompasAnalisis, GlobalMetric]]
 
-class ErrorResponse(BaseModel):
-    error: str
-
-CompasAnalisisUnion = Union[CompasAnalisisResponse, ErrorResponse]
+class CompasAnalisisLote(BaseModel):
+    resultados: List[CompasPorArchivo]
+    errores: List[ErrorResponse] = []
