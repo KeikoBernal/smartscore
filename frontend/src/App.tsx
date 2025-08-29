@@ -1,13 +1,34 @@
-import React from 'react';
-import MidiAnalyzer from './components/MidiAnalyzer';
+"use client"
+
+import type React from "react"
+import { useState } from "react"
+import FileUpload from "./components/file-upload"
+import Dashboard from "./components/Dashboard"
+import "./styles/globals.css"
 
 const App: React.FC = () => {
-  return (
-    <div className="App">
-      <h1>SmartScore Analyzer</h1>
-      <MidiAnalyzer />
-    </div>
-  );
-};
+  const [hasFile, setHasFile] = useState(false)
+  const [fileName, setFileName] = useState<string>("")
 
-export default App;
+  const handleFileUploaded = (name: string) => {
+    setFileName(name)
+    setHasFile(true)
+  }
+
+  const handleBackToUpload = () => {
+    setHasFile(false)
+    setFileName("")
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {!hasFile ? (
+        <FileUpload onFileUploaded={handleFileUploaded} />
+      ) : (
+        <Dashboard fileName={fileName} onBackToUpload={handleBackToUpload} />
+      )}
+    </div>
+  )
+}
+
+export default App

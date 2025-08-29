@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "correccion de metricas"
+git commit -m "inicio frontend"
 git push origin main
 
 source backend/venv/Scripts/activate
