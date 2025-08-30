@@ -4,7 +4,6 @@ from backend.services.compas_parser import analizar_compases
 from backend.schemas.compas_metrics_schema import CompasAnalisisLote, CompasPorArchivo
 from backend.schemas.error_response import ErrorResponse
 from typing import Union, List
-import traceback
 
 router = APIRouter()
 BASE_UPLOADS = Path(__file__).resolve().parent.parent.parent / "uploads"

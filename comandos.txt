@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "estructuracion frontend"
+git commit -m "pulir backend"
 git push origin main
 
 source backend/venv/Scripts/activate

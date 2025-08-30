@@ -6,15 +6,17 @@ from backend.services.parser import (
     complejidad_total, firma_metrica, seccion_aurea, variedad_tonal,
     innovacion_estadistica, firma_fractal, contrapunto_activo, red_interaccion
 )
-
 from backend.services.mixtas_parser import (
     compacidad_melodica, repetitividad_motívica, densidad_armonica,
     variabilidad_intervalica, promedio_notas_por_compas, varianza_notas_por_compas,
-    promedio_rango_dinamico, entropia_duracion, sincronizacion_entrada,
-    dispersión_temporal
+    promedio_rango_dinamico, entropia_duracion_por_compas, sincronizacion_entrada,
+    dispersion_temporal_por_compas, compacidad_melodica_por_compas, repetitividad_motívica_por_compas,
+    notas_por_compas, entropia_armonica_por_compas,
+    densidad_armonica_por_compas, sincronizacion_entrada_por_compas,
+    dispersion_temporal_por_compas, promedio_rango_dinamico_por_compas,
+    variabilidad_intervalica_por_compas
 )
 
-# Función de blindaje
 def blindar(func, *args, nombre=None, **kwargs):
     try:
         return func(*args, **kwargs)
@@ -42,7 +44,6 @@ def fusionar_metricas_simple(score, funcion):
             resultado[f"[ERROR en {submodo}]"] = str(e)
     return resultado
 
-# 1. Instrumentales
 def metricas_instrumentales(score, midi, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, midi, instrumento, metricas_instrumentales)
@@ -63,7 +64,6 @@ def metricas_instrumentales(score, midi, instrumento=None, modo="global"):
 
     return resultado
 
-# 2. Melódicas
 def metricas_melodicas(score, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, None, instrumento, metricas_melodicas)
@@ -83,10 +83,12 @@ def metricas_melodicas(score, instrumento=None, modo="global"):
     if modo == "compases":
         resultado["promedio_notas_por_compas"] = blindar(promedio_notas_por_compas, score, nombre="promedio_notas_por_compas")
         resultado["varianza_notas_por_compas"] = blindar(varianza_notas_por_compas, score, nombre="varianza_notas_por_compas")
+        resultado["compacidad_melodica_por_compas"] = blindar(compacidad_melodica_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="compacidad_melodica_por_compas")
+        resultado["repetitividad_motívica_por_compas"] = blindar(repetitividad_motívica_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="repetitividad_motívica_por_compas")
+        resultado["cantidad_notas_por_compas"] = blindar(notas_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="cantidad_notas_por_compas")
 
     return resultado
 
-# 3. Rítmicas
 def metricas_ritmicas(score, modo="global"):
     resultado = {}
 
@@ -101,18 +103,18 @@ def metricas_ritmicas(score, modo="global"):
     if modo == "global":
         resultado["entropia_ritmica"] = blindar(entropia_ritmica, score, nombre="entropia_ritmica")
         resultado["firma_metrica"] = blindar(firma_metrica, score, nombre="firma_metrica")
-        resultado["entropia_duracion"] = blindar(entropia_duracion, score, nombre="entropia_duracion")
+        resultado["entropia_duracion"] = blindar(entropia_duracion_por_compas, score, nombre="entropia_duracion")
 
     if modo == "mixtas":
-        resultado["entropia_duracion"] = blindar(entropia_duracion, score, nombre="entropia_duracion")
+        resultado["entropia_duracion"] = blindar(entropia_duracion_por_compas, score, nombre="entropia_duracion")
 
     if modo == "compases":
         resultado["promedio_notas_por_compas"] = blindar(promedio_notas_por_compas, score, nombre="promedio_notas_por_compas")
         resultado["varianza_notas_por_compas"] = blindar(varianza_notas_por_compas, score, nombre="varianza_notas_por_compas")
+        resultado["entropia_duracion_por_compas"] = blindar(entropia_duracion_por_compas, score, nombre="entropia_duracion_por_compas")
 
     return resultado
 
-# 4. Armónicas
 def metricas_armonicas(score, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, None, instrumento, metricas_armonicas)
@@ -129,10 +131,13 @@ def metricas_armonicas(score, instrumento=None, modo="global"):
 
     if modo == "compases":
         resultado["densidad_armonica"] = blindar(densidad_armonica, score, nombre="densidad_armonica")
+        resultado["entropia_armonica_por_compas"] = blindar(entropia_armonica_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="entropia_armonica_por_compas")
+        # Si necesitas progresiones_armonicas_por_compas, define la función en parser.py o mixtas_parser.py y luego impórtala.
+        # resultado["progresiones_armonicas_por_compas"] = blindar(progresiones_armonicas_por_compas, score, instrumento=instrumento, nombre="progresiones_armonicas_por_compas")
+        resultado["densidad_armonica_por_compas"] = blindar(densidad_armonica_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="densidad_armonica_por_compas")
 
     return resultado
 
-# 5. Texturales
 def metricas_texturales(score, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, None, instrumento, metricas_texturales)
@@ -149,10 +154,13 @@ def metricas_texturales(score, instrumento=None, modo="global"):
     if modo == "compases":
         resultado["complejidad_total"] = blindar(complejidad_total, score, nombre="complejidad_total")
         resultado["contrapunto_activo"] = blindar(contrapunto_activo, score, instrumento=instrumento, nombre="contrapunto_activo")
+        # Si tienes funciones por compás (contrapunto_activo_por_compas, firma_fractal_por_compas, complejidad_total_por_compas), defínelas o elimínalas.
+        # resultado["contrapunto_activo_por_compas"] = blindar(contrapunto_activo_por_compas, score, instrumento=instrumento, nombre="contrapunto_activo_por_compas")
+        # resultado["firma_fractal_por_compas"] = blindar(firma_fractal_por_compas, score, instrumento=instrumento, nombre="firma_fractal_por_compas")
+        # resultado["complejidad_total_por_compas"] = blindar(complejidad_total_por_compas, score, instrumento=instrumento, nombre="complejidad_total_por_compas")
 
     return resultado
 
-# 6. Formales
 def metricas_formales(score, modo="global"):
     resultado = {}
 
@@ -173,10 +181,11 @@ def metricas_formales(score, modo="global"):
 
     if modo == "compases":
         resultado["compases_estimados"] = blindar(lambda s: int(s.highestTime / (60 / 120) / 4), score, nombre="compases_estimados")
+        # Si tienes función seccion_aurea_por_compas, defínela o elimínala.
+        # resultado["seccion_aurea_por_compas"] = blindar(seccion_aurea_por_compas, score, nombre="seccion_aurea_por_compas")
 
     return resultado
 
-# 7. Interacción
 def metricas_interaccion(score, midi, instrumento=None, modo="global"):
     resultado = {}
     
@@ -187,8 +196,6 @@ def metricas_interaccion(score, midi, instrumento=None, modo="global"):
             **metricas_interaccion(score, midi, instrumento, "compases")
         }
 
-    resultado = {}
-
     if modo == "global":
         resultado["entropia_interaccion"] = blindar(entropia_interaccion, score, nombre="entropia_interaccion")
         resultado["red_interaccion_musical"] = blindar(red_interaccion, score, instrumento=instrumento, nombre="red_interaccion_musical")
@@ -196,28 +203,29 @@ def metricas_interaccion(score, midi, instrumento=None, modo="global"):
     if modo == "mixtas":
         resultado["sincronizacion_entrada"] = blindar(
             sincronizacion_entrada,
-            midi,  # Pasa objeto midi, no score
+            midi,
             instrumentos_seleccionados=[instrumento] if instrumento else None,
             nombre="sincronizacion_entrada"
         )
-        resultado["dispersión_temporal"] = blindar(
-            dispersión_temporal,
+        resultado["dispersion_temporal"] = blindar(
+            dispersion_temporal_por_compas,
             score,
             instrumentos_seleccionados=[instrumento] if instrumento else None,
-            nombre="dispersión_temporal"
+            nombre="dispersion_temporal"
         )
 
     if modo == "compases":
-        resultado["dispersión_temporal"] = blindar(
-            dispersión_temporal,
+        resultado["dispersion_temporal"] = blindar(
+            dispersion_temporal_por_compas,
             score,
             instrumentos_seleccionados=[instrumento] if instrumento else None,
-            nombre="dispersión_temporal"
+            nombre="dispersion_temporal"
         )
+        resultado["sincronizacion_entrada_por_compas"] = blindar(sincronizacion_entrada_por_compas, score, midi, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="sincronizacion_entrada_por_compas")
+        resultado["dispersion_temporal_por_compas"] = blindar(dispersion_temporal_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="dispersion_temporal_por_compas")
 
     return resultado
 
-# 8. Comparativas
 def metricas_comparativas(score, midi, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, midi, instrumento, metricas_comparativas)
@@ -236,10 +244,10 @@ def metricas_comparativas(score, midi, instrumento=None, modo="global"):
             [instrumento] if instrumento else None,
             nombre="promedio_rango_dinamico"
         )
+        resultado["promedio_rango_dinamico_por_compas"] = blindar(promedio_rango_dinamico_por_compas, midi, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="promedio_rango_dinamico_por_compas")
 
     return resultado
 
-# 9. Diferenciadoras
 def metricas_diferenciadoras(score, instrumento=None, modo="global"):
     if modo == "todos":
         return fusionar_metricas(score, None, instrumento, metricas_diferenciadoras)
@@ -253,6 +261,7 @@ def metricas_diferenciadoras(score, instrumento=None, modo="global"):
             [instrumento] if instrumento else None,
             nombre="variabilidad_intervalica"
         )
+        resultado["variabilidad_intervalica_por_compas"] = blindar(variabilidad_intervalica_por_compas, score, instrumentos_seleccionados=[instrumento] if instrumento else None, nombre="variabilidad_intervalica_por_compas")
 
     if modo == "global":
         resultado["entropia_compuesta"] = blindar(
@@ -278,3 +287,53 @@ def metricas_diferenciadoras(score, instrumento=None, modo="global"):
 
     return resultado
 
+def metricas_interaccion(score, midi, instrumento=None, modo="global"):
+    resultado = {}
+    
+    if modo == "todos":
+        return {
+            **metricas_interaccion(score, midi, instrumento, "global"),
+            **metricas_interaccion(score, midi, instrumento, "mixtas"),
+            **metricas_interaccion(score, midi, instrumento, "compases")
+        }
+
+    if modo == "global":
+        resultado["entropia_interaccion"] = blindar(entropia_interaccion, score, nombre="entropia_interaccion")
+        resultado["red_interaccion_musical"] = blindar(red_interaccion, score, instrumento=instrumento, nombre="red_interaccion_musical")
+
+    if modo == "mixtas":
+        resultado["sincronizacion_entrada"] = blindar(
+            sincronizacion_entrada,
+            midi,
+            instrumentos_seleccionados=[instrumento] if instrumento else None,
+            nombre="sincronizacion_entrada"
+        )
+        resultado["dispersion_temporal"] = blindar(
+            dispersion_temporal_por_compas,
+            score,
+            instrumentos_seleccionados=[instrumento] if instrumento else None,
+            nombre="dispersion_temporal"
+        )
+
+    if modo == "compases":
+        resultado["dispersion_temporal"] = blindar(
+            dispersion_temporal_por_compas,
+            score,
+            instrumentos_seleccionados=[instrumento] if instrumento else None,
+            nombre="dispersion_temporal"
+        )
+        resultado["sincronizacion_entrada_por_compas"] = blindar(
+            sincronizacion_entrada_por_compas,
+            score,
+            midi,
+            instrumentos_seleccionados=[instrumento] if instrumento else None,
+            nombre="sincronizacion_entrada_por_compas"
+        )
+        resultado["dispersion_temporal_por_compas"] = blindar(
+            dispersion_temporal_por_compas,
+            score,
+            instrumentos_seleccionados=[instrumento] if instrumento else None,
+            nombre="dispersion_temporal_por_compas"
+        )
+
+    return resultado

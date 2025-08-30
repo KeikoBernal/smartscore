@@ -6,11 +6,11 @@ class CompasAnalisis(BaseModel):
     numero: int
     duracion: float
     notas: int
-    ambitus: dict
+    ambitus: Dict[str, Union[int, float]]  # Mejor tipar dict
     complejidad_ritmica: float
     complejidad_ritmica_cuantificable: int
     direccionalidad_melodica: float
-    polirritmia: dict
+    polirritmia: Dict[str, Union[int, float]]
     tipo_textura: str
     balance_dinamico: float
     solismo_vs_tutti: str
@@ -18,7 +18,7 @@ class CompasAnalisis(BaseModel):
     contrapunto_activo: int
 
 class GlobalMetric(BaseModel):
-    global_: dict  # Evita conflicto con palabra reservada 'global'
+    global_: Dict[str, Union[int, float, dict]]  # Puede contener métricas variadas
 
 class CompasPorArchivo(BaseModel):
     archivo: str

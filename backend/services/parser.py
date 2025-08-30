@@ -2,7 +2,7 @@ import os
 import pretty_midi
 import numpy as np
 from collections import Counter, defaultdict
-from music21 import converter, note, chord, stream
+from music21 import converter, note, chord, stream, interval, pitch
 
 def validar_metrica(valor, nombre):
     if isinstance(valor, (int, float)) and np.isfinite(valor):
@@ -14,10 +14,17 @@ def instrumentos_detectados(score):
     return [p.partName or "Parte sin nombre" for p in score.parts]
 
 def cantidad_total_notas(score):
-    return sum(
-        len([n for n in p.flatten().notes if isinstance(n, note.Note)])
-        for p in score.parts
-    )
+    total_notas = 0
+    conteo_por_nota = defaultdict(int)
+    for p in score.parts:
+        for n in p.flatten().notes:
+            if isinstance(n, note.Note):
+                total_notas += 1
+                conteo_por_nota[n.nameWithOctave] += 1
+    return {
+        "total": total_notas,
+        "por_nota": dict(conteo_por_nota)
+    }
 
 def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
     ruta = os.path.join("uploads", nombre_archivo)
@@ -47,7 +54,8 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
                 score_filtrado.append(parte)
 
             score = score_filtrado
-            instrumento = instrumentos_seleccionados[0]
+            if instrumentos_seleccionados:
+                instrumento = instrumentos_seleccionados[0]
 
         duracion = round(midi.get_end_time(), 2)
         tempo = round(midi.estimate_tempo(), 2)
@@ -80,50 +88,116 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "innovacion_estadistica": validar_metrica(innovacion_estadistica(score), "innovacion_estadistica"),
             "firma_fractal": validar_metrica(firma_fractal(score), "firma_fractal"),
             "partes_detectadas": partes_detectadas(score),
-            "porcentaje_participacion": participacion_por_partes(score)
+            "porcentaje_participacion": participacion_por_partes(score),
+            "cantidad_notas_por_compas": notas_por_compas(score, instrumentos_seleccionados)
         }
 
     except Exception as e:
         return {
             "error": f"No se pudo analizar el archivo: {str(e)}"
         }
-# -------------------------------
-# Funciones auxiliares
-# -------------------------------
 
 def motivos_recurrentes(score, n=3, instrumento=None):
-    motivos = {}
+    motivos_conteo = defaultdict(int)
+    motivos_notacion = {}
+
     partes = score.parts
     if instrumento:
         partes = [p for p in partes if p.partName == instrumento]
 
     for p in partes:
-        compases = p.getElementsByClass('Measure')
-        for m in compases:
-            notas = [n.pitch.midi for n in m.notes if isinstance(n, note.Note)]
-            for i in range(len(notas) - n + 1):
-                motivo = tuple(notas[i:i+n])
-                clave = "-".join(str(p) for p in motivo)
-                motivos[clave] = motivos.get(clave, 0) + 1
-    return {k: int(v) for k, v in motivos.items() if v > 1}
+        if not p.getElementsByClass('Measure'):
+            continue
+        
+        for m in p.getElementsByClass('Measure'):
+            notas_en_compas = [n for n in m.notes if isinstance(n, note.Note)]
+            notas_midi = [n.pitch.midi for n in notas_en_compas]
+            notas_nombre = [n.nameWithOctave for n in notas_en_compas]
+
+            for i in range(len(notas_midi) - n + 1):
+                motivo_midi = tuple(notas_midi[i:i+n])
+                motivo_nombre = tuple(notas_nombre[i:i+n])
+                clave = "-".join(str(p_midi) for p_midi in motivo_midi)
+                motivos_conteo[clave] += 1
+                if clave not in motivos_notacion:
+                    motivos_notacion[clave] = list(motivo_nombre)
+
+    resultados = {}
+    for clave, conteo in motivos_conteo.items():
+        if conteo > 1:
+            resultados[clave] = {
+                "conteo": conteo,
+                "notacion": motivos_notacion.get(clave, [])
+            }
+    return resultados
 
 def progresiones_armonicas(score, instrumento=None):
     partes = score.parts
     if instrumento:
-        partes = [p for p in partes if p.partName == instrumento]
-    acordes = stream.Score(parts=partes).chordify().recurse().getElementsByClass(chord.Chord)
-    return [c.pitchedCommonName for c in acordes]
+        partes = [p for p in partes if p.partName == instrumento]    
+    if not partes:
+        return {}
+    score_para_chordify = stream.Score()
+    for p in partes:
+        score_para_chordify.append(p)
+
+    acordes = score_para_chordify.chordify().recurse().getElementsByClass(chord.Chord)
+    nombres_acordes = [c.pitchedCommonName for c in acordes if c.pitchedCommonName]
+
+    conteo_acordes = Counter(nombres_acordes)
+
+    progresiones = []
+    for i in range(len(nombres_acordes) - 1):
+        progresion = (nombres_acordes[i], nombres_acordes[i+1])
+        progresiones.append(progresion)
+    conteo_progresiones = Counter(progresiones)
+
+    resultado = {
+        "acordes": dict(conteo_acordes),
+        "progresiones_2_acordes": {f"{p[0]} -> {p[1]}": c for p, c in conteo_progresiones.items()}
+    }
+    return resultado
 
 def intervalos_predominantes(score, instrumento=None):
     partes = score.parts
     if instrumento:
         partes = [p for p in partes if p.partName == instrumento]
-    notas = [n for p in partes for n in p.flatten().notes if isinstance(n, note.Note)]
-    intervalos = [
-        notas[i].pitch.midi - notas[i-1].pitch.midi
-        for i in range(1, len(notas))
+    
+    notas_midi = []
+    for p in partes:
+        for n in p.flatten().notes:
+            if isinstance(n, note.Note):
+                notas_midi.append(n.pitch.midi)
+
+    intervalos_raw = [
+        notas_midi[i] - notas_midi[i-1]
+        for i in range(1, len(notas_midi))
     ]
-    return intervalos
+    
+    if not intervalos_raw:
+        return {"valores": [], "predominantes": [], "nombres": []}
+
+    conteo_intervalos = Counter(intervalos_raw)
+    max_frecuencia = max(conteo_intervalos.values()) if conteo_intervalos else 0
+    
+    predominantes_valores = [
+        val for val, count in conteo_intervalos.items()
+        if count == max_frecuencia
+    ]
+
+    predominantes_nombres = []
+    for val in predominantes_valores:
+        try:
+            int_obj = interval.Interval(val)
+            predominantes_nombres.append(int_obj.name)
+        except Exception:
+            predominantes_nombres.append(f"Intervalo desconocido ({val})")
+
+    return {
+        "valores": intervalos_raw,
+        "predominantes": predominantes_valores,
+        "nombres": predominantes_nombres
+    }
 
 def balance_dinamico(midi, instrumento=None):
     energia = {}
@@ -170,7 +244,7 @@ def clasificar_familias(score):
             if nombre_normalizado == clave_normalizada:
                 return instrumento_a_familia[clave]
             if nombre_normalizado.startswith(clave_normalizada):
-                                return instrumento_a_familia[clave]
+                return instrumento_a_familia[clave]
         return "Otros"
 
     for p in score.parts:
@@ -186,6 +260,7 @@ def contrapunto_activo(score, instrumento=None):
         partes = [p for p in partes if p.partName == instrumento]
     if len(partes) < 2:
         return 0.0
+    
     entropias = []
     for p in partes:
         notas = [n.pitch.midi for n in p.flatten().notes if isinstance(n, note.Note)]
@@ -194,6 +269,7 @@ def contrapunto_activo(score, instrumento=None):
             prob = hist / np.sum(hist)
             entropia = -np.sum(prob * np.log2(prob + 1e-9))
             entropias.append(entropia)
+    
     if len(entropias) < 2:
         return 0.0
     return float(round(np.std(entropias), 3))
@@ -244,10 +320,6 @@ def participacion_por_partes(score):
         for nombre, cantidad in conteo.items()
         if total > 0
     }
-
-# -------------------------------
-# Métricas globales
-# -------------------------------
 
 def perfil_compositivo(score):
     return {
@@ -300,6 +372,8 @@ def complejidad_total(score):
     return float(round(sum(valores), 3)) if valores else 0.0
 
 def firma_metrica(score):
+    if not score.parts:
+        return {}
     compases = score.parts[0].getElementsByClass(stream.Measure)
     duraciones = [m.duration.quarterLength for m in compases]
     return dict(Counter(duraciones))
@@ -330,3 +404,19 @@ def firma_fractal(score):
         medias = [np.mean(g) for g in agrupadas if g]
         variaciones.append(np.std(medias))
     return float(round(np.std(variaciones), 3))
+
+def notas_por_compas(score, instrumentos_seleccionados=None):
+    resultados_por_compas = []
+    if not score.parts:
+        return resultados_por_compas
+    compases = score.parts[0].getElementsByClass(stream.Measure)
+    for i, m in enumerate(compases):
+        notas = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                notas.extend([n for n in compas_parte.notes if isinstance(n, note.Note)])
+        resultados_por_compas.append({f"compas #{i+1}": len(notas)})
+    return resultados_por_compas

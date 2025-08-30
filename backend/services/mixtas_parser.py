@@ -9,180 +9,362 @@ def carga_midi(midi_path):
     return pretty_midi.PrettyMIDI(midi_path)
 
 def compases(score):
+    if not score.parts:
+        return []
     return list(score.parts[0].getElementsByClass(stream.Measure))
 
 def notas_por_compas(score, instrumentos_seleccionados=None):
-    resultado = []
-    for m in compases(score):
-        notas = [
-            n for n in m.notes
-            if isinstance(n, note.Note) and (
-                not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-            )
-        ]
-        resultado.append(len(notas))
-    return resultado
+    resultados_por_compas = []
+    for i, m in enumerate(compases(score)):
+        notas = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                notas.extend([n for n in compas_parte.notes if isinstance(n, note.Note)])
+        resultados_por_compas.append({f"compas #{i+1}": len(notas)})
+    return resultados_por_compas
 
 def promedio_notas_por_compas(score, instrumentos_seleccionados=None):
-    cantidades = notas_por_compas(score, instrumentos_seleccionados)
-    return float(round(np.mean(cantidades), 2)) if cantidades else 0.0
+    cantidades_raw = [list(d.values())[0] for d in notas_por_compas(score, instrumentos_seleccionados)]
+    return float(round(np.mean(cantidades_raw), 2)) if cantidades_raw else 0.0
 
 def varianza_notas_por_compas(score, instrumentos_seleccionados=None):
-    cantidades = notas_por_compas(score, instrumentos_seleccionados)
-    return float(round(np.var(cantidades), 2)) if cantidades else 0.0
-
-def rango_dinamico_por_compas(midi, total_compases, instrumentos_seleccionados=None):
-    duracion_total = midi.get_end_time()
-    duracion_compas = duracion_total / total_compases
-    rangos = []
-
-    for i in range(total_compases):
-        inicio = i * duracion_compas
-        fin = (i + 1) * duracion_compas
-        velocities = []
-
-        for inst in midi.instruments:
-            nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
-            if instrumentos_seleccionados and nombre not in instrumentos_seleccionados:
+    resultados_por_compas = []
+    for i, m in enumerate(compases(score)):
+        notas_midi_en_compas = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
                 continue
-            velocities += [n.velocity for n in inst.notes if inicio <= n.start < fin]
-
-        if velocities:
-            rangos.append(int(max(velocities) - min(velocities)))
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                notas_midi_en_compas.extend([n.pitch.midi for n in compas_parte.notes if isinstance(n, note.Note)])
+        if len(notas_midi_en_compas) > 1:
+            varianza = float(round(np.var(notas_midi_en_compas), 2))
         else:
-            rangos.append(0)
+            varianza = 0.0
+        resultados_por_compas.append({f"compas #{i+1}": varianza})
+    return resultados_por_compas
 
-    return rangos
+def entropia_duracion_por_compas(score, instrumentos_seleccionados=None):
+    resultados_por_compas = []
+    for i, m in enumerate(compases(score)):
+        duraciones_en_compas = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                duraciones_en_compas.extend([n.quarterLength for n in compas_parte.notes if isinstance(n, note.Note)])
+        if not duraciones_en_compas:
+            entropia = 0.0
+        else:
+            hist, _ = np.histogram(duraciones_en_compas, bins=8)
+            if np.sum(hist) == 0:
+                entropia = 0.0
+            else:
+                prob = hist / np.sum(hist)
+                prob = prob[prob > 0]
+                entropia = -np.sum(prob * np.log2(prob))
+        resultados_por_compas.append({f"compas #{i+1}": float(round(entropia, 3))})
+    return resultados_por_compas
 
-def promedio_rango_dinamico(midi, total_compases, instrumentos_seleccionados=None):
-    rangos = rango_dinamico_por_compas(midi, total_compases, instrumentos_seleccionados)
-    return float(round(np.mean(rangos), 2)) if rangos else 0.0
-
-def densidad_armonica(score):
-    acordes = score.chordify().recurse().getElementsByClass(chord.Chord)
-    notas_totales = sum(len(c.pitches) for c in acordes)
-    return float(round(notas_totales / len(acordes), 2)) if acordes else 0.0
-
-def variabilidad_intervalica(score, instrumentos_seleccionados=None):
-    notas = [
-        n for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    intervalos = [
-        notas[i+1].pitch.midi - notas[i].pitch.midi
-        for i in range(len(notas) - 1)
-    ]
-    return float(round(np.std(intervalos), 2)) if intervalos else 0.0
-
-def entropia_duracion(score, instrumentos_seleccionados=None):
-    duraciones = [
-        n.quarterLength for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    if not duraciones:
+def compacidad_melodica(score, instrumentos_seleccionados=None):
+    alturas = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        alturas.extend([n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)])
+    if not alturas:
         return 0.0
-    hist = np.histogram(duraciones, bins=8)[0]
+    rango = max(alturas) - min(alturas) if alturas else 0
+    return float(round(len(set(alturas)) / (rango + 1), 3))
+
+def compacidad_melodica_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    for i, m in enumerate(compases(score)):
+        alturas = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                alturas.extend([n.pitch.midi for n in compas_parte.notes if isinstance(n, note.Note)])
+        if not alturas:
+            valor = 0.0
+        else:
+            rango = max(alturas) - min(alturas) if alturas else 0
+            valor = float(round(len(set(alturas)) / (rango + 1), 3))
+        resultados.append({f"compas #{i+1}": valor})
+    return resultados
+
+def repetitividad_motívica(score, n=3, instrumentos_seleccionados=None):
+    motivos_conteo = {}
+    partes = score.parts
+    if instrumentos_seleccionados:
+        partes = [p for p in partes if p.partName in instrumentos_seleccionados]
+
+    for p in partes:
+        notas = [n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)]
+        for i in range(len(notas) - n + 1):
+            motivo = tuple(notas[i:i+n])
+            motivos_conteo[motivo] = motivos_conteo.get(motivo, 0) + 1
+
+    total_motivos = sum(motivos_conteo.values())
+    if total_motivos == 0:
+        return 0.0
+    repetidos = sum(count for count in motivos_conteo.values() if count > 1)
+    return float(round(repetidos / total_motivos, 3))
+
+def repetitividad_motívica_por_compas(score, n=3, instrumentos_seleccionados=None):
+    resultados = []
+    for i, m in enumerate(compases(score)):
+        motivos_conteo = {}
+        partes = score.parts
+        if instrumentos_seleccionados:
+            partes = [p for p in partes if p.partName in instrumentos_seleccionados]
+        for p in partes:
+            compas_parte = p.measure(m.number)
+            if not compas_parte:
+                continue
+            notas = [n.pitch.midi for n in compas_parte.notes if isinstance(n, note.Note)]
+            for j in range(len(notas) - n + 1):
+                motivo = tuple(notas[j:j+n])
+                motivos_conteo[motivo] = motivos_conteo.get(motivo, 0) + 1
+        total_motivos = sum(motivos_conteo.values())
+        if total_motivos == 0:
+            valor = 0.0
+        else:
+            repetidos = sum(count for count in motivos_conteo.values() if count > 1)
+            valor = float(round(repetidos / total_motivos, 3))
+        resultados.append({f"compas #{i+1}": valor})
+    return resultados
+
+def entropia_melodica(score, instrumentos_seleccionados=None):
+    alturas = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        alturas.extend([n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)])
+    if not alturas:
+        return 0.0
+    hist = np.histogram(alturas, bins=24)[0]
     prob = hist / np.sum(hist)
-    entropia = -np.sum(prob * np.log2(prob + 1e-9))
+    prob = prob[prob > 0]
+    entropia = -np.sum(prob * np.log2(prob))
     return float(round(entropia, 3))
 
+def entropia_ritmica(score, instrumentos_seleccionados=None):
+    duraciones = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        duraciones.extend([n.quarterLength for n in p.flat.notes if isinstance(n, note.Note)])
+    if not duraciones:
+        return 0.0
+    hist = np.histogram(duraciones, bins=16)[0]
+    prob = hist / np.sum(hist)
+    prob = prob[prob > 0]
+    entropia = -np.sum(prob * np.log2(prob))
+    return float(round(entropia, 3))
+
+def entropia_armonica(score, instrumentos_seleccionados=None):
+    partes = score.parts
+    if instrumentos_seleccionados:
+        partes = [p for p in partes if p.partName in instrumentos_seleccionados]
+    if not partes:
+        return 0.0
+    score_chord = stream.Score()
+    for p in partes:
+        score_chord.append(p)
+    acordes = score_chord.chordify().recurse().getElementsByClass(chord.Chord)
+    nombres_acordes = [c.pitchedCommonName for c in acordes if c.pitchedCommonName]
+    if not nombres_acordes:
+        return 0.0
+    letras = [ord(a[0]) for a in nombres_acordes if a]
+    hist = np.histogram(letras, bins=12)[0]
+    prob = hist / np.sum(hist)
+    prob = prob[prob > 0]
+    entropia = -np.sum(prob * np.log2(prob))
+    return float(round(entropia, 3))
+
+def densidad_armonica(score):
+    compases = compases(score)
+    if not compases:
+        return 0.0
+    score_chord = score.chordify()
+    acordes = score_chord.recurse().getElementsByClass(chord.Chord)
+    total_acordes = len(acordes)
+    densidad = total_acordes / len(compases)
+    return float(round(densidad, 3))
+
+def densidad_armonica_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for i, m in enumerate(compases_lista):
+        score_chord = stream.Score()
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                score_chord.append(compas_parte)
+        acordes = score_chord.chordify().recurse().getElementsByClass(chord.Chord)
+        densidad = len(acordes)
+        resultados.append({f"compas #{i+1}": densidad})
+    return resultados
+
+def entropia_armonica_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for i, m in enumerate(compases_lista):
+        partes = score.parts
+        if instrumentos_seleccionados:
+            partes = [p for p in partes if p.partName in instrumentos_seleccionados]
+        score_chord = stream.Score()
+        for p in partes:
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                score_chord.append(compas_parte)
+        acordes = score_chord.chordify().recurse().getElementsByClass(chord.Chord)
+        nombres_acordes = [c.pitchedCommonName for c in acordes if c.pitchedCommonName]
+        if not nombres_acordes:
+            entropia = 0.0
+        else:
+            letras = [ord(a[0]) for a in nombres_acordes if a]
+            hist = np.histogram(letras, bins=12)[0]
+            prob = hist / np.sum(hist) if np.sum(hist) > 0 else np.zeros_like(hist)
+            prob = prob[prob > 0]
+            entropia = -np.sum(prob * np.log2(prob)) if prob.size > 0 else 0.0
+        resultados.append({f"compas #{i+1}": float(round(entropia, 3))})
+    return resultados
+
 def sincronizacion_entrada(midi, instrumentos_seleccionados=None):
-    entradas = []
+    tiempos = []
     for inst in midi.instruments:
         nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
         if instrumentos_seleccionados and nombre not in instrumentos_seleccionados:
             continue
         if inst.notes:
-            entradas.append(inst.notes[0].start)
-    if len(entradas) < 2:
+            tiempos.append(inst.notes[0].start)
+    if not tiempos:
         return 0.0
-    return float(round(np.std(entradas), 3))
+    return float(round(np.std(tiempos), 3))
+
+def sincronizacion_entrada_por_compas(score, midi, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for i, m in enumerate(compases_lista):
+        tiempos = []
+        for inst in midi.instruments:
+            nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
+            if instrumentos_seleccionados and nombre not in instrumentos_seleccionados:
+                continue
+            notas_en_compas = [n for n in inst.notes if m.offset <= n.start < m.offset + m.duration.quarterLength]
+            if notas_en_compas:
+                tiempos.append(notas_en_compas[0].start)
+        if not tiempos:
+            valor = 0.0
+        else:
+            valor = float(round(np.std(tiempos), 3))
+        resultados.append({f"compas #{i+1}": valor})
+    return resultados
 
 def dispersión_temporal(score, instrumentos_seleccionados=None):
-    tiempos = [
-        n.offset for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    return float(round(np.std(tiempos), 3)) if tiempos else 0.0
-
-def compacidad_melodica(score, instrumentos_seleccionados=None):
-    notas = [
-        n.pitch.midi for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    if not notas:
+    offsets = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        offsets.extend([n.offset for n in p.flat.notes if isinstance(n, note.Note)])
+    if not offsets:
         return 0.0
-    return float(round(np.std(notas), 2))
+    return float(round(np.std(offsets), 3))
 
-def repetitividad_motívica(score, n=3, instrumentos_seleccionados=None):
-    notas = [
-        n.pitch.midi for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    motivos = {}
-    for i in range(len(notas) - n + 1):
-        motivo = tuple(notas[i:i+n])
-        clave = "-".join(str(p) for p in motivo)
-        motivos[clave] = motivos.get(clave, 0) + 1
-    repetidos = [v for v in motivos.values() if v > 1]
-    return float(round(np.mean(repetidos), 2)) if repetidos else 0.0
+def dispersion_temporal_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for i, m in enumerate(compases_lista):
+        offsets = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                offsets.extend([n.offset for n in compas_parte.notes if isinstance(n, note.Note)])
+        if not offsets:
+            valor = 0.0
+        else:
+            valor = float(round(np.std(offsets), 3))
+        resultados.append({f"compas #{i+1}": valor})
+    return resultados
 
-def entropia_melodica(score, instrumentos_seleccionados=None):
-    notas = [
-        n.pitch.midi for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    if not notas:
+def promedio_rango_dinamico(midi, total_compases, instrumentos_seleccionados=None):
+    if total_compases == 0:
         return 0.0
-    hist = np.histogram(notas, bins=12)[0]
-    prob = hist / np.sum(hist)
-    entropia = -np.sum(prob * np.log2(prob + 1e-9))
-    return float(round(entropia, 3))
-
-def entropia_ritmica(score, instrumentos_seleccionados=None):
-    duraciones = [
-        n.quarterLength for n in score.flatten().notes
-        if isinstance(n, note.Note) and (
-            not instrumentos_seleccionados or n.getInstrument().instrumentName in instrumentos_seleccionados
-        )
-    ]
-    if not duraciones:
+    rangos = []
+    for inst in midi.instruments:
+        nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
+        if instrumentos_seleccionados and nombre not in instrumentos_seleccionados:
+            continue
+        if inst.notes:
+            velocities = [n.velocity for n in inst.notes]
+            rango = max(velocities) - min(velocities)
+            rangos.append(rango)
+    if not rangos:
         return 0.0
-    hist = np.histogram(duraciones, bins=8)[0]
-    prob = hist / np.sum(hist)
-    entropia = -np.sum(prob * np.log2(prob + 1e-9))
-    return float(round(entropia, 3))
+    return float(round(np.mean(rangos), 3))
 
-def entropia_armonica(score, instrumentos_seleccionados=None):
-    acordes = score.chordify().recurse().getElementsByClass(chord.Chord)
-    if instrumentos_seleccionados:
-        acordes = [
-            c for c in acordes
-            if any(
-                p.instrumentName in instrumentos_seleccionados
-                for p in c.getContextByClass(stream.Part).getElementsByClass(note.Note)
-                if hasattr(p, 'instrumentName')
-            )
-        ]
-    nombres = [c.pitchedCommonName for c in acordes]
-    if not nombres:
+def promedio_rango_dinamico_por_compas(midi, score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for m in compases_lista:
+        rangos = []
+        for inst in midi.instruments:
+            nombre = inst.name.strip() or pretty_midi.program_to_instrument_name(inst.program)
+            if instrumentos_seleccionados and nombre not in instrumentos_seleccionados:
+                continue
+            notas_en_compas = [n for n in inst.notes if m.offset <= n.start < m.offset + m.duration.quarterLength]
+            if notas_en_compas:
+                velocities = [n.velocity for n in notas_en_compas]
+                rango = max(velocities) - min(velocities)
+                rangos.append(rango)
+        if not rangos:
+            valor = 0.0
+        else:
+            valor = float(round(np.mean(rangos), 3))
+        resultados.append({f"compas #{m.number}": valor})
+    return resultados
+
+def variabilidad_intervalica(score, instrumentos_seleccionados=None):
+    intervalos = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        notas = [n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)]
+        intervalos.extend([abs(notas[i+1] - notas[i]) for i in range(len(notas)-1)])
+    if not intervalos:
         return 0.0
-    hist = np.histogram(range(len(nombres)), bins=8)[0]
-    prob = hist / np.sum(hist)
-    entropia = -np.sum(prob * np.log2(prob + 1e-9))
-    return float(round(entropia, 3))
+    return float(round(np.std(intervalos), 3))
+
+def variabilidad_intervalica_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for m in compases_lista:
+        intervalos = []
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                notas = [n.pitch.midi for n in compas_parte.notes if isinstance(n, note.Note)]
+                intervalos.extend([abs(notas[i+1] - notas[i]) for i in range(len(notas)-1)])
+        if not intervalos:
+            valor = 0.0
+        else:
+            valor = float(round(np.std(intervalos), 3))
+        resultados.append({f"compas #{m.number}": valor})
+    return resultados
 
 def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
     score = carga_score(midi_path)
@@ -195,7 +377,7 @@ def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
         "promedio_rango_dinamico": promedio_rango_dinamico(midi, total_compases, instrumentos_seleccionados),
         "densidad_armonica": densidad_armonica(score),
         "variabilidad_intervalica": variabilidad_intervalica(score, instrumentos_seleccionados),
-        "entropia_duracion": entropia_duracion(score, instrumentos_seleccionados),
+        "entropia_duracion": entropia_duracion_por_compas(score, instrumentos_seleccionados),  # Nota: aquí usamos la función por compás para global también
         "sincronizacion_entrada": sincronizacion_entrada(midi, instrumentos_seleccionados),
         "dispersión_temporal": dispersión_temporal(score, instrumentos_seleccionados),
         "compacidad_melodica": compacidad_melodica(score, instrumentos_seleccionados),
@@ -208,5 +390,15 @@ def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
                 entropia_melodica(score, instrumentos_seleccionados),
                 entropia_ritmica(score, instrumentos_seleccionados),
                 entropia_armonica(score, instrumentos_seleccionados)
-            ]), 3))
+            ]), 3)),
+        "cantidad_notas_por_compas": notas_por_compas(score, instrumentos_seleccionados),
+        "compacidad_melodica_por_compas": compacidad_melodica_por_compas(score, instrumentos_seleccionados),
+        "repetitividad_motívica_por_compas": repetitividad_motívica_por_compas(score, n=3, instrumentos_seleccionados=instrumentos_seleccionados),
+        "entropia_duracion_por_compas": entropia_duracion_por_compas(score, instrumentos_seleccionados),
+        "entropia_armonica_por_compas": entropia_armonica_por_compas(score, instrumentos_seleccionados),
+        "densidad_armonica_por_compas": densidad_armonica_por_compas(score, instrumentos_seleccionados),
+        "sincronizacion_entrada_por_compas": sincronizacion_entrada_por_compas(score, midi, instrumentos_seleccionados),
+        "dispersión_temporal_por_compas": dispersion_temporal_por_compas(score, instrumentos_seleccionados),
+        "promedio_rango_dinamico_por_compas": promedio_rango_dinamico_por_compas(midi, score, instrumentos_seleccionados),
+        "variabilidad_intervalica_por_compas": variabilidad_intervalica_por_compas(score, instrumentos_seleccionados)
     }
