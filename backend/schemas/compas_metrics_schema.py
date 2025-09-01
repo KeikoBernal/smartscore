@@ -1,30 +1,37 @@
 from pydantic import BaseModel
-from typing import List, Union, Dict
-from backend.schemas.error_response import ErrorResponse
+from typing import List, Dict, Union, Optional
+
+class AmbitusMetrics(BaseModel):
+    min_pitch: Optional[int]
+    max_pitch: Optional[int]
+    range: Optional[int]
+
+class PolirritmiaMetrics(BaseModel):
+    valor: Optional[float]
 
 class CompasAnalisis(BaseModel):
     numero: int
     duracion: float
     notas: int
-    ambitus: Dict[str, Union[int, float]]  # Mejor tipar dict
-    complejidad_ritmica: float
-    complejidad_ritmica_cuantificable: int
-    direccionalidad_melodica: float
-    polirritmia: Dict[str, Union[int, float]]
-    tipo_textura: str
-    balance_dinamico: float
-    solismo_vs_tutti: str
-    simultaneidad_tematica: int
-    contrapunto_activo: int
-
-class GlobalMetric(BaseModel):
-    global_: Dict[str, Union[int, float, dict]]  # Puede contener métricas variadas
+    ambitus: Optional[AmbitusMetrics] = None
+    complejidad_ritmica: Optional[float] = None
+    complejidad_ritmica_cuantificable: Optional[int] = None
+    direccionalidad_melodica: Optional[float] = None
+    polirritmia: Optional[PolirritmiaMetrics] = None
+    tipo_textura: Optional[str] = None
+    balance_dinamico: Optional[float] = None
+    solismo_vs_tutti: Optional[str] = None
+    simultaneidad_tematica: Optional[int] = None
+    contrapunto_activo: Optional[float] = None  # Ahora puede ser float por instrumento
+    complejidad_total: Optional[float] = None
+    seccion_aurea: Optional[float] = None
+    entropia_compuesta: Optional[float] = None
 
 class CompasPorArchivo(BaseModel):
     archivo: str
     instrumentos: List[str]
-    compases: List[Union[CompasAnalisis, GlobalMetric]]
+    compases: List[CompasAnalisis]
 
 class CompasAnalisisLote(BaseModel):
     resultados: List[CompasPorArchivo]
-    errores: List[ErrorResponse] = []
+    errores: Optional[List[Dict[str, Union[str, List[str]]]]] = []

@@ -56,17 +56,23 @@ def entropia_duracion_por_compas(score, instrumentos_seleccionados=None):
                 continue
             compas_parte = p.measure(m.number)
             if compas_parte:
-                duraciones_en_compas.extend([n.quarterLength for n in compas_parte.notes if isinstance(n, note.Note)])
+                duraciones_en_compas.extend([n.quarterLength for n in compas_parte.notes if hasattr(n, 'quarterLength')])
         if not duraciones_en_compas:
             entropia = 0.0
         else:
             hist, _ = np.histogram(duraciones_en_compas, bins=8)
-            if np.sum(hist) == 0:
+            suma_hist = np.sum(hist)
+            if suma_hist == 0:
                 entropia = 0.0
             else:
-                prob = hist / np.sum(hist)
+                prob = hist / suma_hist
                 prob = prob[prob > 0]
-                entropia = -np.sum(prob * np.log2(prob))
+                if prob.size == 0:
+                    entropia = 0.0
+                else:
+                    entropia = -np.sum(prob * np.log2(prob))
+                if not np.isfinite(entropia):
+                    entropia = 0.0
         resultados_por_compas.append({f"compas #{i+1}": float(round(entropia, 3))})
     return resultados_por_compas
 
@@ -190,13 +196,13 @@ def entropia_armonica(score, instrumentos_seleccionados=None):
     return float(round(entropia, 3))
 
 def densidad_armonica(score):
-    compases = compases(score)
-    if not compases:
+    compases_del_score = compases(score) # Renombrado de variable local
+    if not compases_del_score:
         return 0.0
     score_chord = score.chordify()
     acordes = score_chord.recurse().getElementsByClass(chord.Chord)
     total_acordes = len(acordes)
-    densidad = total_acordes / len(compases)
+    densidad = total_acordes / len(compases_del_score) # Usar la variable renombrada
     return float(round(densidad, 3))
 
 def densidad_armonica_por_compas(score, instrumentos_seleccionados=None):
@@ -236,7 +242,11 @@ def entropia_armonica_por_compas(score, instrumentos_seleccionados=None):
             hist = np.histogram(letras, bins=12)[0]
             prob = hist / np.sum(hist) if np.sum(hist) > 0 else np.zeros_like(hist)
             prob = prob[prob > 0]
-            entropia = -np.sum(prob * np.log2(prob)) if prob.size > 0 else 0.0
+            # INICIO DE CÓDIGO A INSERTAR/MODIFICAR
+            if prob.size == 0: # Añadido: Manejar caso de prob vacío
+                entropia = 0.0
+            else:
+                entropia = -np.sum(prob * np.log2(prob)) if prob.size > 0 else 0.0
         resultados.append({f"compas #{i+1}": float(round(entropia, 3))})
     return resultados
 
@@ -366,6 +376,90 @@ def variabilidad_intervalica_por_compas(score, instrumentos_seleccionados=None):
         resultados.append({f"compas #{m.number}": valor})
     return resultados
 
+def entropia_compuesta_por_compas(score, instrumentos_seleccionados=None):
+    resultados = []
+    compases_lista = compases(score)
+    for i, m in enumerate(compases_lista):
+        score_compas = stream.Score()
+        for p in score.parts:
+            if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+                continue
+            compas_parte = p.measure(m.number)
+            if compas_parte:
+                score_compas.append(compas_parte)
+
+        em = entropia_melodica(score_compas, instrumentos_seleccionados=instrumentos_seleccionados)
+        er = entropia_ritmica(score_compas, instrumentos_seleccionados=instrumentos_seleccionados)
+        ea = entropia_armonica(score_compas, instrumentos_seleccionados=instrumentos_seleccionados)
+        valores = [v for v in [em, er, ea] if isinstance(v, (int, float)) and np.isfinite(v)]
+        entropia_compuesta = float(round(np.mean(valores), 3)) if valores else 0.0
+        
+        resultados.append({f"compas #{i+1}": entropia_compuesta})
+    return resultados
+
+def contrapunto_activo_instrumento(score):
+
+    resultados = {}
+    instrumentos = [p.partName for p in score.parts if p.partName]
+    for instrumento in instrumentos:
+        partes = [p for p in score.parts if p.partName == instrumento]
+        if len(partes) < 2:
+            resultados[instrumento] = 0.0
+            continue
+
+        entropias = []
+        for p in partes:
+            notas = [n.pitch.midi for n in p.flatten().notes if isinstance(n, note.Note)]
+            if notas:
+                hist = np.histogram(notas, bins=12)[0]
+                suma = np.sum(hist)
+                if suma == 0:
+                    entropia = 0.0
+                else:
+                    prob = hist / suma
+                    prob = prob[prob > 0]
+                    if prob.size == 0:
+                        entropia = 0.0
+                    else:
+                        entropia = -np.sum(prob * np.log2(prob))
+                entropias.append(entropia)
+        if len(entropias) < 2:
+            resultados[instrumento] = 0.0
+        else:
+            resultados[instrumento] = round(float(np.std(entropias)), 3)
+    return resultados
+
+def complejidad_total(score):
+
+    from backend.services.parser import entropia_melodica, entropia_ritmica, entropia_armonica, entropia_interaccion
+
+    resultados = {}
+    instrumentos = [p.partName for p in score.parts if p.partName]
+    for instrumento in instrumentos:
+        em = entropia_melodica(score, instrumentos_seleccionados=[instrumento])
+        er = entropia_ritmica(score, instrumentos_seleccionados=[instrumento])
+        ea = entropia_armonica(score, instrumentos_seleccionados=[instrumento])
+        ei = entropia_interaccion(score, instrumentos_seleccionados=[instrumento])
+
+        valores = [v for v in [em, er, ea, ei] if isinstance(v, (int, float)) and np.isfinite(v)]
+        if not valores:
+            resultados[instrumento] = 0.0
+        else:
+            resultados[instrumento] = round(float(sum(valores)), 3)
+    return resultados
+
+def seccion_aurea_por_compas(score):
+
+    resultados = []
+    if not score.parts:
+        return resultados
+    compases_lista = score.parts[0].getElementsByClass(stream.Measure)
+    for m in compases_lista:
+        duracion_compas = m.duration.quarterLength
+        punto_seccion_aurea = duracion_compas * 0.618
+        resultados.append({f"compas #{m.number}": round(punto_seccion_aurea, 3)})
+    return resultados
+
 def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
     score = carga_score(midi_path)
     midi = carga_midi(midi_path)
@@ -375,6 +469,9 @@ def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
         "promedio_notas_por_compas": promedio_notas_por_compas(score, instrumentos_seleccionados),
         "varianza_notas_por_compas": varianza_notas_por_compas(score, instrumentos_seleccionados),
         "promedio_rango_dinamico": promedio_rango_dinamico(midi, total_compases, instrumentos_seleccionados),
+        "contrapunto_activo_instrumento": contrapunto_activo_instrumento(score),
+        "complejidad_total_por_instrumentos": complejidad_total(score),
+        "seccion_aurea_por_compas": seccion_aurea_por_compas(score),
         "densidad_armonica": densidad_armonica(score),
         "variabilidad_intervalica": variabilidad_intervalica(score, instrumentos_seleccionados),
         "entropia_duracion": entropia_duracion_por_compas(score, instrumentos_seleccionados),  # Nota: aquí usamos la función por compás para global también
@@ -400,5 +497,6 @@ def analizar_mixtas(midi_path, instrumentos_seleccionados=None):
         "sincronizacion_entrada_por_compas": sincronizacion_entrada_por_compas(score, midi, instrumentos_seleccionados),
         "dispersión_temporal_por_compas": dispersion_temporal_por_compas(score, instrumentos_seleccionados),
         "promedio_rango_dinamico_por_compas": promedio_rango_dinamico_por_compas(midi, score, instrumentos_seleccionados),
-        "variabilidad_intervalica_por_compas": variabilidad_intervalica_por_compas(score, instrumentos_seleccionados)
+        "variabilidad_intervalica_por_compas": variabilidad_intervalica_por_compas(score, instrumentos_seleccionados),
+        "entropia_compuesta_por_compas": entropia_compuesta_por_compas(score, instrumentos_seleccionados)
     }

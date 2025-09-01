@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "pulir backend"
+git commit -m "incorporar graficas backend"
 git push origin main
 
 source backend/venv/Scripts/activate

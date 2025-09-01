@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pretty_midi
 import numpy as np
 from collections import Counter, defaultdict
@@ -26,6 +27,28 @@ def cantidad_total_notas(score):
         "por_nota": dict(conteo_por_nota)
     }
 
+def seccion_aurea_por_compas(score): # Nueva función
+    resultados = []
+    if not score.parts:
+        return []
+    compases_lista = score.parts[0].getElementsByClass(stream.Measure)
+    for m in compases_lista:
+        punto_seccion_aurea_compas = m.duration.quarterLength * 0.618
+        resultados.append({f"compas #{m.number}": float(round(punto_seccion_aurea_compas, 3))})
+    return resultados
+
+def compases_no_vacios_por_instrumento(score): # Nueva función
+    resultados = {}
+    for p in score.parts:
+        nombre_instrumento = p.partName or "Parte sin nombre"
+        conteo_compases = 0
+        for m in p.getElementsByClass(stream.Measure):
+            # Cuenta compases que tienen al menos una nota o un silencio
+            if any(isinstance(el, (note.Note, note.Rest)) for el in m.flat.notesAndRests):
+                conteo_compases += 1
+        resultados[nombre_instrumento] = conteo_compases
+    return resultados
+
 def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
     ruta = os.path.join("uploads", nombre_archivo)
 
@@ -40,8 +63,7 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             instrumentos_normalizados = [i.strip().lower() for i in instrumentos_seleccionados]
 
             midi.instruments = [
-                inst for inst in midi.instruments
-                if inst.name.strip().lower() in instrumentos_normalizados
+                inst for inst in midi.instruments if inst.name.strip().lower() in instrumentos_normalizados
             ]
 
             partes_filtradas = [
@@ -54,12 +76,12 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
                 score_filtrado.append(parte)
 
             score = score_filtrado
-            if instrumentos_seleccionados:
+            if instrumentos_seleccionados and len(instrumentos_seleccionados) == 1:
                 instrumento = instrumentos_seleccionados[0]
 
         duracion = round(midi.get_end_time(), 2)
         tempo = round(midi.estimate_tempo(), 2)
-        compases_aprox = int(duracion / (60 / tempo) / 4) if tempo else 0
+        # compases_aprox = int(duracion / (60 / tempo) / 4) if tempo else 0 # Eliminado o renombrado
 
         perfil = perfil_compositivo(score)
 
@@ -69,7 +91,7 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "tempo_promedio": validar_metrica(tempo, "tempo_promedio"),
             "instrumentos_detectados": instrumentos_detectados(score),
             "cantidad_total_notas": cantidad_total_notas(score),
-            "compases_estimados": compases_aprox,
+            "compases_estimados": compases_no_vacios_por_instrumento(score), # Usar la nueva función
             "motivos_recurrentes": motivos_recurrentes(score, instrumento=instrumento),
             "progresiones_armonicas": progresiones_armonicas(score, instrumento=instrumento),
             "intervalos_predominantes": intervalos_predominantes(score, instrumento=instrumento),
@@ -81,12 +103,12 @@ def analizar_midi(nombre_archivo: str, instrumentos_seleccionados=None) -> dict:
             "entropia_melodica": validar_metrica(perfil["entropia_melodica"], "entropia_melodica"),
             "entropia_armonica": validar_metrica(perfil["entropia_armonica"], "entropia_armonica"),
             "entropia_interaccion": validar_metrica(perfil["entropia_interaccion"], "entropia_interaccion"),
-            "complejidad_total": validar_metrica(complejidad_total(score), "complejidad_total"),
+            "complejidad_total": validar_metrica(complejidad_total(score, instrumento=instrumento), "complejidad_total"), # Modificado
             "firma_metrica": firma_metrica(score),
             "seccion_aurea": validar_metrica(seccion_aurea(score), "seccion_aurea"),
             "variedad_tonal": validar_metrica(variedad_tonal(score), "variedad_tonal"),
             "innovacion_estadistica": validar_metrica(innovacion_estadistica(score), "innovacion_estadistica"),
-            "firma_fractal": validar_metrica(firma_fractal(score), "firma_fractal"),
+            "firma_fractal": validar_metrica(firma_fractal(score, instrumento=instrumento), "firma_fractal"), # Modificado
             "partes_detectadas": partes_detectadas(score),
             "porcentaje_participacion": participacion_por_partes(score),
             "cantidad_notas_por_compas": notas_por_compas(score, instrumentos_seleccionados)
@@ -131,6 +153,52 @@ def motivos_recurrentes(score, n=3, instrumento=None):
             }
     return resultados
 
+
+
+def clasificar_familias(score):
+    familias = {
+        "Cuerdas": [], "Vientos madera": [], "Metales": [],
+        "Percusión": [], "Teclado": [], "Otros": []
+    }
+
+    instrumento_a_familia = {
+        "Violin I": "Cuerdas", "Violin II": "Cuerdas", "Violin": "Cuerdas",
+        "Viola": "Cuerdas", "Cello": "Cuerdas", "Contrabass": "Cuerdas",
+        "Harp": "Cuerdas", "Classical Guitar": "Cuerdas", "Mandolin": "Cuerdas", "Lute": "Cuerdas",
+        "Flute": "Vientos madera", "Piccolo": "Vientos madera", "Clarinet": "Vientos madera",
+        "Bass Clarinet": "Vientos madera", "Alto Clarinet": "Vientos madera", "Contrabass Clarinet": "Vientos madera",
+        "Oboe": "Vientos madera", "English Horn": "Vientos madera", "Bassoon": "Vientos madera", "Contrabassoon": "Vientos madera",
+        "Saxophone": "Vientos madera",
+        "Trumpet": "Metales", "Piccolo Trumpet": "Metales", "French Horn": "Metales", "Horn": "Metales",
+        "Trombone": "Metales", "Bass Trombone": "Metales", "Tuba": "Metales",
+        "Euphonium": "Metales", "Cornet": "Metales", "Helicon": "Metales", "Fiscornio": "Metales",
+        "Timpani": "Percusión", "Marimba": "Percusión", "Xylophone": "Percusión", "Vibraphone": "Percusión",
+        "Glockenspiel": "Percusión", "Tubular Bells": "Percusión", "Celesta": "Percusión",
+        "Bass Drum": "Percusión", "Snare Drum": "Percusión", "Cymbals": "Percusión", "Triangle": "Percusión",
+        "Tambourine": "Percusión", "Gong": "Percusión", "Woodblock": "Percusión", "Castanets": "Percusión",
+        "Piano": "Teclado", "Harpsichord": "Teclado", "Organ": "Teclado", "Clavichord": "Teclado",
+        "Harmonium": "Teclado", "Glass Harmonica": "Teclado"
+    }
+
+    claves_ordenadas = sorted(instrumento_a_familia.keys(), key=lambda x: -len(x))
+
+    def encontrar_familia(nombre):
+        nombre_normalizado = nombre.strip().lower()
+        for clave in claves_ordenadas:
+            clave_normalizada = clave.lower()
+            if nombre_normalizado == clave_normalizada:
+                return instrumento_a_familia[clave]
+            if nombre_normalizado.startswith(clave_normalizada):
+                                return instrumento_a_familia[clave]
+        return "Otros"
+
+    for p in score.parts:
+        nombre = p.partName or "Parte sin nombre"
+        familia = encontrar_familia(nombre)
+        familias[familia].append(nombre)
+
+    return familias
+
 def progresiones_armonicas(score, instrumento=None):
     partes = score.parts
     if instrumento:
@@ -147,16 +215,17 @@ def progresiones_armonicas(score, instrumento=None):
     conteo_acordes = Counter(nombres_acordes)
 
     progresiones = []
-    for i in range(len(nombres_acordes) - 1):
-        progresion = (nombres_acordes[i], nombres_acordes[i+1])
+    for i in range(len(nombres_acordes) - 2):
+        progresion = tuple(nombres_acordes[i:i+3])
         progresiones.append(progresion)
     conteo_progresiones = Counter(progresiones)
 
     resultado = {
         "acordes": dict(conteo_acordes),
-        "progresiones_2_acordes": {f"{p[0]} -> {p[1]}": c for p, c in conteo_progresiones.items()}
+        "progresiones_2_acordes": {f"{p[0]} -> {p[1]} -> {p[2]}": c for p, c in conteo_progresiones.items()}
     }
     return resultado
+
 
 def intervalos_predominantes(score, instrumento=None):
     partes = score.parts
@@ -254,12 +323,30 @@ def clasificar_familias(score):
 
     return familias
 
-def contrapunto_activo(score, instrumento=None):
-    partes = score.parts
+def contrapunto_activo(score, instrumento=None): # Modificado para aceptar instrumento
+    partes_a_analizar = score.parts
     if instrumento:
-        partes = [p for p in partes if p.partName == instrumento]
-    if len(partes) < 2:
+        partes_a_analizar = [p for p in score.parts if p.partName == instrumento]
+    
+    if len(partes_a_analizar) < 2:
         return 0.0
+    
+    entropias = []
+    for p in partes_a_analizar:
+        notas = [n.pitch.midi for n in p.flatten().notes if isinstance(n, note.Note)]
+        if notas:
+            hist = np.histogram(notas, bins=12)[0]
+            prob = hist / np.sum(hist)
+            prob = prob[prob > 0] # Asegurarse de que no haya ceros
+            if prob.size == 0: # Añadido: Manejar caso de prob vacío
+                entropia = 0.0
+            else:
+                entropia = -np.sum(prob * np.log2(prob + 1e-9))
+            entropias.append(entropia)
+    
+    if len(entropias) < 2:
+        return 0.0
+    return float(round(np.std(entropias), 3))
     
     entropias = []
     for p in partes:
@@ -321,53 +408,82 @@ def participacion_por_partes(score):
         if total > 0
     }
 
-def perfil_compositivo(score):
+def perfil_compositivo(score, instrumento=None): # Modificado para aceptar instrumento
     return {
-        "entropia_ritmica": entropia_ritmica(score),
-        "entropia_melodica": entropia_melodica(score),
-        "entropia_armonica": entropia_armonica(score),
-        "entropia_interaccion": entropia_interaccion(score)
+        "entropia_ritmica": entropia_ritmica(score, instrumentos_seleccionados=[instrumento] if instrumento else None),
+        "entropia_melodica": entropia_melodica(score, instrumentos_seleccionados=[instrumento] if instrumento else None),
+        "entropia_armonica": entropia_armonica(score, instrumentos_seleccionados=[instrumento] if instrumento else None),
+        "entropia_interaccion": entropia_interaccion(score, instrumentos_seleccionados=[instrumento] if instrumento else None)
     }
 
-def entropia_ritmica(score):
-    duraciones = [n.quarterLength for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+def entropia_ritmica(score, instrumentos_seleccionados=None): # Modificado para aceptar instrumentos_seleccionados
+    duraciones = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        duraciones.extend([n.quarterLength for n in p.flat.notes if isinstance(n, note.Note)])
     if not duraciones:
         return 0.0
     hist = np.histogram(duraciones, bins=16)[0]
     prob = hist / np.sum(hist)
+    prob = prob[prob > 0]
+    if prob.size == 0: # Añadido: Manejar caso de prob vacío
+        return 0.0
     return float(round(-np.sum(prob * np.log2(prob + 1e-9)), 3))
 
-def entropia_melodica(score):
-    alturas = [n.pitch.midi for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+def entropia_melodica(score, instrumentos_seleccionados=None): # Modificado para aceptar instrumentos_seleccionados
+    alturas = []
+    for p in score.parts:
+        if instrumentos_seleccionados and p.partName not in instrumentos_seleccionados:
+            continue
+        alturas.extend([n.pitch.midi for n in p.flat.notes if isinstance(n, note.Note)])
     if not alturas:
         return 0.0
     hist = np.histogram(alturas, bins=24)[0]
     prob = hist / np.sum(hist)
+    prob = prob[prob > 0]
+    if prob.size == 0: # Añadido: Manejar caso de prob vacío
+        return 0.0
     return float(round(-np.sum(prob * np.log2(prob + 1e-9)), 3))
 
-def entropia_armonica(score):
-    acordes = [c.root().name for p in score.parts for c in p.chordify().recurse().getElementsByClass(chord.Chord)]
-    if not acordes:
+def entropia_armonica(score, instrumentos_seleccionados=None): # Modificado para aceptar instrumentos_seleccionados
+    partes = score.parts
+    if instrumentos_seleccionados:
+        partes = [p for p in partes if p.partName in instrumentos_seleccionados]
+    if not partes:
         return 0.0
-    letras = [ord(a[0]) for a in acordes if a]
+    score_chord = stream.Score()
+    for p in partes:
+        score_chord.append(p)
+    acordes = score_chord.chordify().recurse().getElementsByClass(chord.Chord)
+    nombres_acordes = [c.pitchedCommonName for c in acordes if c.pitchedCommonName]
+    if not nombres_acordes:
+        return 0.0
+    letras = [ord(a[0]) for a in nombres_acordes if a]
     if not letras:
         return 0.0
     hist = np.histogram(letras, bins=12)[0]
     prob = hist / np.sum(hist)
+    prob = prob[prob > 0]
+    if prob.size == 0: # Añadido: Manejar caso de prob vacío
+        return 0.0
     entropia = -np.sum(prob * np.log2(prob + 1e-9))
     return float(round(entropia, 3))
 
-def entropia_interaccion(score):
-    red = red_interaccion(score)
+def entropia_interaccion(score, instrumentos_seleccionados=None): # Modificado para aceptar instrumentos_seleccionados
+    red = red_interaccion(score, instrumento=instrumentos_seleccionados[0] if instrumentos_seleccionados else None)
     grados = [v for v in red.values()]
     if not grados:
         return 0.0
     prob = np.array(grados) / np.sum(grados)
+    prob = prob[prob > 0] # Asegurarse de que no haya ceros
+    if prob.size == 0: # Añadido: Manejar caso de prob vacío
+        return 0.0
     entropia = -np.sum(prob * np.log2(prob + 1e-9))
     return float(round(entropia, 3))
 
-def complejidad_total(score):
-    perfil = perfil_compositivo(score)
+def complejidad_total(score, instrumento=None): # Modificado para aceptar instrumento
+    perfil = perfil_compositivo(score, instrumento=instrumento)
     valores = [v for v in perfil.values() if isinstance(v, (int, float)) and np.isfinite(v)]
     return float(round(sum(valores), 3)) if valores else 0.0
 
@@ -393,8 +509,11 @@ def innovacion_estadistica(score):
     valores = [v for v in perfil.values() if isinstance(v, (int, float)) and np.isfinite(v)]
     return float(round(np.mean(valores), 3)) if valores else 0.0
 
-def firma_fractal(score):
-    notas = [n.offset for p in score.parts for n in p.flat.notes if isinstance(n, note.Note)]
+def firma_fractal(score, instrumento=None): # Modificado para aceptar instrumento
+    partes_a_analizar = score.parts
+    if instrumento:
+        partes_a_analizar = [p for p in score.parts if p.partName == instrumento]
+    notas = [n.offset for p in partes_a_analizar for n in p.flat.notes if isinstance(n, note.Note)]
     if len(notas) < 2:
         return 0.0
     escalas = [1, 2, 4, 8]

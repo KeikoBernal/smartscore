@@ -385,12 +385,7 @@ def analizar_compases(midi_path, instrumentos_seleccionados=None):
         "entropia_melodica": entropia_melodica(score, instrumentos_seleccionados),
         "entropia_ritmica": entropia_ritmica(score, instrumentos_seleccionados),
         "entropia_armonica": entropia_armonica(score, instrumentos_seleccionados),
-        "entropia_compuesta": float(round(
-            np.mean([
-                entropia_melodica(score, instrumentos_seleccionados),
-                entropia_ritmica(score, instrumentos_seleccionados),
-                entropia_armonica(score, instrumentos_seleccionados)
-            ]), 3)),
+        "entropia_compuesta": float(round(np.mean([entropia_melodica(score, instrumentos_seleccionados), entropia_ritmica(score, instrumentos_seleccionados), entropia_armonica(score, instrumentos_seleccionados)]), 3)),
         "cantidad_notas_por_compas": notas_por_compas(score, instrumentos_seleccionados),
         "compacidad_melodica_por_compas": compacidad_melodica_por_compas(score, instrumentos_seleccionados),
         "repetitividad_motívica_por_compas": repetitividad_motívica_por_compas(score, n=3, instrumentos_seleccionados=instrumentos_seleccionados),

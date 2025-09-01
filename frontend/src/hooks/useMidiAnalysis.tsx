@@ -1,3 +1,5 @@
+// /src/hooks/useMidiAnalysis.tsx
+
 import { useState } from 'react';
 import {
   subirArchivo,
@@ -10,8 +12,22 @@ export function useMidiAnalysis() {
   const [instrumentosDetectados, setInstrumentosDetectados] = useState<string[]>([]);
   const [instrumentoSeleccionado, setInstrumentoSeleccionado] = useState<string>('');
   const [instrumentoPendiente, setInstrumentoPendiente] = useState<string>('');
-  const [modo, setModo] = useState<'global' | 'compases' | 'mixtas' | 'todos'>('global');
-  const [categoria, setCategoria] = useState<string>('melodicas');
+  const [modo, setModo] = useState<'global' | 'compases' | 'mixtas' | 'todos'>('todos');
+  // Cambiar el tipo de 'categoria' para incluir 'todos'
+  const [categoria, setCategoria] = useState<
+    | 'todas'
+    | 'instrumentales'
+    | 'melodicas'
+    | 'ritmicas'
+    | 'armonicas'
+    | 'texturales'
+    | 'formales'
+    | 'interaccion'
+    | 'comparativas'
+    | 'diferenciadoras'
+    | 'todos' // Añadir 'todos' aquí
+  >('todas'); // Mantener 'todas' como valor inicial para el frontend
+
   const [resultado, setResultado] = useState<any>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -23,9 +39,13 @@ export function useMidiAnalysis() {
     const instrumentoFinal = instrumento !== undefined ? instrumento : instrumentoSeleccionado;
 
     try {
+      // Si la categoría seleccionada en el frontend es 'todas',
+      // la enviamos como 'todos' al backend para obtener todas las métricas.
+      const categoriaBackend = categoria === 'todas' ? 'todos' : categoria;
+
       const res = await obtenerMetricasPorCategoria(
         archivo.name,
-        categoria,
+        categoriaBackend, // Usar categoriaBackend aquí
         instrumentoFinal,
         modo
       );
@@ -54,7 +74,9 @@ export function useMidiAnalysis() {
       const instrumentos = await obtenerInstrumentos(file.name);
       setInstrumentosDetectados(instrumentos.data);
 
-      await analizar(); // análisis inicial sin filtro
+      // Al subir y preparar, realizar un análisis inicial con la categoría 'todas' (que se mapea a 'todos' en el backend)
+      // y el modo 'todos' para obtener un conjunto completo de métricas por defecto.
+      await analizar();
     } catch (err: any) {
       setResultado({
         error: err.response?.data?.error || 'Error desconocido',
