@@ -226,12 +226,32 @@ def progresiones_armonicas(score, instrumento=None):
     }
     return resultado
 
-
 def intervalos_predominantes(score, instrumento=None):
+    def intervalo_nombre(real_valor):
+        nombres_intervalos = {
+            0: "Unísono",
+            1: "Segunda menor",
+            2: "Segunda mayor",
+            3: "Tercera menor",
+            4: "Tercera mayor",
+            5: "Cuarta justa",
+            6: "Tritono (Cuarta aumentada / Quinta disminuida)",
+            7: "Quinta justa",
+            8: "Sexta menor",
+            9: "Sexta mayor",
+            10: "Séptima menor",
+            11: "Séptima mayor",
+            12: "Octava justa"
+        }
+        direccion = "ascendente" if real_valor > 0 else "descendente"
+        val_abs = abs(real_valor)
+        nombre = nombres_intervalos.get(val_abs, f"Intervalo desconocido ({real_valor})")
+        return f"{nombre} ({direccion})" if val_abs != 0 else nombre
+
     partes = score.parts
     if instrumento:
         partes = [p for p in partes if p.partName == instrumento]
-    
+
     notas_midi = []
     for p in partes:
         for n in p.flatten().notes:
@@ -242,25 +262,19 @@ def intervalos_predominantes(score, instrumento=None):
         notas_midi[i] - notas_midi[i-1]
         for i in range(1, len(notas_midi))
     ]
-    
+
     if not intervalos_raw:
         return {"valores": [], "predominantes": [], "nombres": []}
 
     conteo_intervalos = Counter(intervalos_raw)
     max_frecuencia = max(conteo_intervalos.values()) if conteo_intervalos else 0
-    
+
     predominantes_valores = [
         val for val, count in conteo_intervalos.items()
         if count == max_frecuencia
     ]
 
-    predominantes_nombres = []
-    for val in predominantes_valores:
-        try:
-            int_obj = interval.Interval(val)
-            predominantes_nombres.append(int_obj.name)
-        except Exception:
-            predominantes_nombres.append(f"Intervalo desconocido ({val})")
+    predominantes_nombres = [intervalo_nombre(val) for val in predominantes_valores]
 
     return {
         "valores": intervalos_raw,

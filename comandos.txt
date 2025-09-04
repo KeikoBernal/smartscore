@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "corregir graficas backend"
+git commit -m "frontend simple exitosamente implementado"
 git push origin main
 
 source backend/venv/Scripts/activate

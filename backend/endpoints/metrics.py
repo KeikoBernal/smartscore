@@ -25,6 +25,7 @@ async def obtener_metricas_multiples(
         "compases_estimados",
         "motivos_recurrentes",
         "intervalos_predominantes",
+        "intervalos_todos",
         "balance_dinamico", "red_interaccion_musical",
         "seccion_aurea", "variedad_tonal",
         "innovacion_estadistica", "firma_fractal",

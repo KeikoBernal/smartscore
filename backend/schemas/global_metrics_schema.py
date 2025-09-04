@@ -26,6 +26,7 @@ class GlobalMetrics(BaseModel):
     compases_estimados: int
     motivos_recurrentes: Dict[str, Dict[str, Union[int, List[str]]]]
     intervalos_predominantes: Dict[str, Union[List[int], List[str]]]
+    intervalos_todos: List[str]
     balance_dinamico: Dict[str, float]
     red_interaccion_musical: Dict[str, int]
     seccion_aurea: float
