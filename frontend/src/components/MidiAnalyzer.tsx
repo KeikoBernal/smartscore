@@ -21,6 +21,7 @@ import {
   Legend,
 } from 'chart.js';
 import * as d3 from 'd3';
+import { obtenerMetricasPorCategoria } from '../services/api'; // Importar la función de la API
 
 ChartJS.register(
   CategoryScale,
@@ -137,19 +138,182 @@ const chartConfig: Record<string, Record<string, string>> = {
   },
 };
 
-// D3 Chord Chart Component
+// Colores brillantes para las gráficas (20 colores)
+const CHART_COLORS = [
+  '#FF3B30', // rojo brillante
+  '#FF9500', // naranja brillante
+  '#FFCC00', // amarillo brillante
+  '#4CD964', // verde brillante
+  '#5AC8FA', // azul claro brillante
+  '#007AFF', // azul brillante
+  '#5856D6', // índigo brillante
+  '#AF52DE', // púrpura brillante
+  '#FF2D55', // rosa brillante
+  '#FF6B81', // rosa claro brillante
+  '#FF9F1C', // naranja dorado
+  '#FF5E3A', // rojo anaranjado
+  '#FFDB58', // amarillo dorado
+  '#32CD32', // verde lima
+  '#00CED1', // turquesa
+  '#1E90FF', // azul dodger
+  '#8A2BE2', // azul violeta
+  '#FF69B4', // rosa fuerte
+  '#FFA500', // naranja
+  '#00FF7F', // verde primavera
+];
+
+const CHART_BORDER_COLORS = [
+  '#CC2E28', // rojo oscuro
+  '#CC7A00', // naranja oscuro
+  '#CCAA00', // amarillo oscuro
+  '#3DAF4A', // verde oscuro
+  '#4AA6D9', // azul claro oscuro
+  '#0066CC', // azul oscuro
+  '#4B47B3', // índigo oscuro
+  '#9B3DB8', // púrpura oscuro
+  '#CC2646', // rosa oscuro
+  '#CC5A6E', // rosa claro oscuro
+  '#CC7A17', // naranja dorado oscuro
+  '#CC4A2E', // rojo anaranjado oscuro
+  '#CCB84A', // amarillo dorado oscuro
+  '#28A428', // verde lima oscuro
+  '#009A9A', // turquesa oscuro
+  '#1A6FCC', // azul dodger oscuro
+  '#6A1B9A', // azul violeta oscuro
+  '#CC3B7A', // rosa fuerte oscuro
+  '#CC8400', // naranja oscuro
+  '#00CC66', // verde primavera oscuro
+];
+
+// Tooltips de información (extraídos de informacion.txt)
+const TOOLTIPS: Record<string, { title: string; description: string }> = {
+  instrumentos_detectados: {
+    title: "Instrumentos detectados",
+    description: "Una lista de nombres de instrumentos o voces. Por ejemplo, [\"Violín\", \"Piano\", \"Flauta\"] indica las secciones involucradas.",
+  },
+  cantidad_total_notas: {
+    title: "Cantidad total de notas",
+    description: "Número total de notas tocadas y distribución por nota. Ejemplo: {\"total\": 500, \"por_nota\": {\"C4\": 40, \"G4\": 55}}; esto indica que el C4 aparece 40 veces, lo que puede señalar su importancia melódica.",
+  },
+  porcentaje_participacion: {
+    title: "Porcentaje de participación",
+    description: "Indica qué instrumento toca más notas. Ejemplo: {\"Piano\": 50%, \"Violín\": 50%} quiere decir que ambos instrumentos tienen igual peso en cantidad de notas.",
+  },
+  balance_dinamico: {
+    title: "Balance dinámico",
+    description: "Promedio de intensidad (velocidad en MIDI) de notas en cada instrumento, por ejemplo, {\"Piano\": 70, \"Violín\": 85}, sugiere que el violín suena más fuerte en la interpretación.",
+  },
+  entropia_melodica: {
+    title: "Entropía melódica",
+    description: "Indica variedad en alturas. Un valor alto (~2-3) implica melodías con muchas notas diferentes, bajo (~0-1) indica líneas simples y repetitivas.",
+  },
+  intervalos_predominantes: {
+    title: "Intervalos predominantes",
+    description: "Muestra los saltos más comunes entre notas consecutivas, como \"Segunda mayor\" o \"Tercera menor\", ayudando a entender el carácter melódico.",
+  },
+  motivos_recurrentes: {
+    title: "Motivos recurrentes",
+    description: "Listado de grupos de notas que se repiten, con conteo. Por ejemplo, {\"60-62-64\": {\"conteo\": 4, \"notacion\": [\"C4\",\"D4\",\"E4\"]}} indica un motivo Do-Re-Mi que aparece 4 veces, útil para identificar temas.",
+  },
+  variedad_tonal: {
+    title: "Variedad tonal",
+    description: "Número de tonalidades detectadas; 1 indica música en una sola tonalidad, mientras más alto refleja modulaciones.",
+  },
+  entropia_armonica: {
+    title: "Entropía armónica",
+    description: "Mide la variedad de acordes, valores cercanos a 0 indican progresiones con poco cambio, valores altos indican mayor diversidad.",
+  },
+  progresiones_armonicas: {
+    title: "Progresiones armónicas",
+    description: "Muestra qué progresiones de acorde son más frecuentes, por ejemplo \"C:maj - G:maj - Am:maj\": 5 indica que esa secuencia ocurre 5 veces.",
+  },
+  densidad_armonica: {
+    title: "Densidad armonica",
+    description: "Número promedio de acordes por compás; un valor de 2 muestra que en promedio hay dos cambios armónicos por compás.",
+  },
+  entropia_ritmica: {
+    title: "Entropía rítmica",
+    description: "Alto valor indica ritmos variados (mezcla de negras, corcheas, silencios, etc.), bajo valor indica ritmo uniforme o muy repetitivo.",
+  },
+  firma_metrica: {
+    title: "Firma métrica",
+    description: "Distribución de tipos de compases o duraciones de compás. Ejemplo: {4: 32, 3: 8} indica predominio en 4/4 con algunos compases en 3/4.",
+  },
+  promedio_notas_por_compas: {
+    title: "Notas por compás",
+    description: "Promedio de notas que ocurren en cada compás; un número alto indica un ritmo más denso.",
+  },
+  seccion_aurea: {
+    title: "Sección áurea",
+    description: "Tiempo o compás que representa el 61.8% de la duración total, usualmente punto importante en la forma musical. Ejemplo: para una pieza de 100 s la sección áurea estaría en 61.8 s.",
+  },
+  compases_estimados: {
+    title: "Compases estimados",
+    description: "Número aproximado de compases, útil para saber la duración en términos de estructura.",
+  },
+  contrapunto_activo: {
+    title: "Contrapunto activo",
+    description: "Cuantifica la diversidad melódica simultánea. Valores altos indican contrapunto con líneas melódicas independientes.",
+  },
+  red_interaccion_musical: {
+    title: "Red de interacción musical",
+    description: "Cuántas veces dos instrumentos tocan simultáneamente. Por ejemplo, \"Piano-Violín\": 25 indica mucha interacción entre esas dos líneas.",
+  },
+  sincronizacion_entrada: {
+    title: "Sincronización de entrada",
+    description: "Mide cuán sincronizados están los inicios de notas entre instrumentos, valor cercano a 0 indica alta sincronía.",
+  },
+  // Añadir tooltips para las métricas por compás si se desea
+  variabilidad_intervalica_por_compas: {
+    title: "Variabilidad Interválica por Compás",
+    description: "Mide la variabilidad de los intervalos melódicos dentro de cada compás.",
+  },
+  varianza_notas_por_compas: {
+    title: "Varianza de Notas por Compás",
+    description: "Indica la dispersión de la cantidad de notas en cada compás.",
+  },
+  dispersion_temporal_por_compas: {
+    title: "Dispersión Temporal por Compás",
+    description: "Mide la dispersión de los eventos musicales en el tiempo dentro de cada compás.",
+  },
+  promedio_rango_dinamico_por_compas: {
+    title: "Promedio de Rango Dinámico por Compás",
+    description: "El rango dinámico promedio de las notas en cada compás.",
+  },
+  compacidad_melodica_por_compas: {
+    title: "Compacidad Melódica por Compás",
+    description: "Mide cuán 'densas' son las melodías en cada compás.",
+  },
+  repetitividad_motívica_por_compas: {
+    title: "Repetitividad Motívica por Compás",
+    description: "Indica la frecuencia de motivos recurrentes en cada compás.",
+  },
+  cantidad_notas_por_compas: {
+    title: "Cantidad de Notas por Compás",
+    description: "El número total de notas presentes en cada compás.",
+  },
+  sincronizacion_entrada_por_compas: {
+    title: "Sincronización de Entrada por Compás",
+    description: "Mide la sincronización de los inicios de notas entre instrumentos en cada compás.",
+  },
+};
+
+
+// /src/components/MidiAnalyzer.tsx
+
 interface ChordChartProps {
   data: Record<string, number>;
   title: string;
+  tooltipInfo?: { title: string; description: string };
 }
 
-const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
+const ChordChart: React.FC<ChordChartProps> = ({ data, title, tooltipInfo }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   useEffect(() => {
     if (!data || Object.keys(data).length === 0) return;
 
-    const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+    const margin = { top: 30, right: 30, bottom: 30, left: 30 };
     const width = 400 - margin.left - margin.right;
     const height = 400 - margin.top - margin.bottom;
     const outerRadius = Math.min(width, height) * 0.5 - 30;
@@ -161,7 +325,7 @@ const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
       .append('g')
-      .attr('transform', `translate(${width / 2 + margin.left},${height / 2 + margin.top})`);
+      .attr('transform', `translate(${(width + margin.left + margin.right) / 2},${(height + margin.top + margin.bottom) / 2})`);
 
     const labels = Array.from(new Set(Object.keys(data).flatMap(d => d.split('-'))));
     const nameToIndex = new Map(labels.map((name, i) => [name, i]));
@@ -189,7 +353,7 @@ const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
       .radius(innerRadius - 1)
       .padAngle(1 / innerRadius);
 
-    const color = d3.scaleOrdinal(labels, d3.schemeCategory10);
+    const color = d3.scaleOrdinal(labels, CHART_COLORS);
 
     const group = svg.append('g')
       .selectAll('g')
@@ -201,7 +365,7 @@ const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
       .attr('stroke', d => d3.rgb(color(labels[d.index]) as string).darker() as any)
       .attr('d', arc as any);
 
-    // No mostrar etiquetas en el gráfico para evitar sobrecarga visual
+    // Eliminamos las etiquetas de texto en el gráfico
 
     svg.append('g')
       .attr('fill-opacity', 0.7)
@@ -217,17 +381,29 @@ const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
   }, [data]);
 
   return (
-    <div className="mb-4">
-      <h4 className="text-sm font-semibold mb-1">{title}</h4>
-      <svg ref={svgRef}></svg>
-      <div className="chord-legend mt-2 flex flex-wrap gap-2 max-w-[400px]">
+    <div className="mb-4 chart-container" style={{ overflow: 'visible' }}>
+      <h4 className="text-sm font-semibold mb-1 chart-title">
+        {title}
+        {tooltipInfo && (
+          <span className="tooltip-icon" title={tooltipInfo.description}>
+            &#9432;
+          </span>
+        )}
+      </h4>
+      <svg ref={svgRef} style={{ overflow: 'visible' }}></svg>
+
+      {/* Leyenda mejorada debajo del gráfico */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: 10, gap: 12 }}>
         {Array.from(new Set(Object.keys(data).flatMap(d => d.split('-')))).map((label, i) => (
-          <div key={label} className="legend-item flex items-center gap-2 text-xs">
-            <span
-              className="legend-color-block"
-              style={{ backgroundColor: d3.schemeCategory10[i % 10] }}
-            />
-            <span className="legend-label">{label}</span>
+          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: 16,
+              height: 16,
+              backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+              borderRadius: 3,
+              border: '1px solid #ccc',
+            }} />
+            <span style={{ color: 'white', fontSize: 12 }}>{label}</span>
           </div>
         ))}
       </div>
@@ -239,9 +415,10 @@ const ChordChart: React.FC<ChordChartProps> = ({ data, title }) => {
 interface HeatmapProps {
   data: { compas: string; value: number }[];
   title: string;
+  tooltipInfo?: { title: string; description: string };
 }
 
-const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
+const Heatmap: React.FC<HeatmapProps> = ({ data, title, tooltipInfo }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const [colorDomain, setColorDomain] = useState<[number, number] | null>(null);
@@ -249,8 +426,8 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
   useEffect(() => {
     if (!data || data.length === 0) return;
 
-    const margin = { top: 30, right: 30, bottom: 30, left: 60 };
-    const cellSize = 40; // Cuadrados más grandes
+    const margin = { top: 30, right: 10, bottom: 30, left: 80 };
+    const cellSize = 50; // Cuadrados más grandes
     const cols = 10; // 10 cuadrados de ancho
     const rows = Math.ceil(data.length / cols);
     const width = cols * cellSize;
@@ -273,6 +450,12 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
     const colorScale = d3.scaleSequential(d3.interpolateViridis)
       .domain([minVal, maxVal]);
 
+    // Función para determinar el color del texto basado en el color de fondo
+    const getTextColor = (bgColor: string) => {
+      const labColor = d3.lab(bgColor);
+      return labColor.l > 50 ? '#000' : '#fff'; // Si la luminancia es alta, usa negro; de lo contrario, blanco
+    };
+
     // Crear grupos para cada celda
     const cells = svg.selectAll('g.cell')
       .data(data)
@@ -291,6 +474,17 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
       .attr('ry', 6)
       .attr('fill', d => colorScale(d.value));
 
+    // Añadir texto con el valor dentro de cada cuadrado
+    cells.append('text')
+      .attr('x', cellSize / 2)
+      .attr('y', cellSize / 2)
+      .attr('dy', '0.35em') // Centrar verticalmente
+      .attr('text-anchor', 'middle') // Centrar horizontalmente
+      .style('font-size', '10px')
+      .style('font-weight', 'bold')
+      .style('fill', d => getTextColor(colorScale(d.value))) // Color de texto contrastante
+      .text(d => d3.format('.2f')(d.value)); // Formatear el valor a 2 decimales
+
     // Etiquetas de compás solo al inicio de cada fila (cada múltiplo de cols)
     const rowsCount = rows;
     const rowLabels = svg.selectAll('text.row-label')
@@ -302,7 +496,7 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
       .attr('dy', '0.35em')
       .attr('text-anchor', 'end')
       .attr('font-size', 12)
-      .attr('fill', '#444')
+      .attr('fill', 'white') // Asegurar que las etiquetas de fila sean blancas
       .text(d => `Compás ${d * cols + 1}`);
 
     // Leyenda de colores
@@ -357,15 +551,23 @@ const Heatmap: React.FC<HeatmapProps> = ({ data, title }) => {
       .attr('transform', `translate(0,${legendHeight})`)
       .call(legendAxis)
       .selectAll('text')
-      .style('font-size', '10px');
+      .style('font-size', '10px')
+      .style('fill', 'white'); // Asegurar que el texto de la leyenda sea blanco
 
   }, [data]);
 
-  return (
-    <div className="mb-4">
-      <h4 className="text-sm font-semibold mb-1">{title}</h4>
+   return (
+    <>
+      <h4 className="text-sm font-semibold mb-1 chart-title">
+        {title}
+        {tooltipInfo && (
+          <span className="tooltip-icon" title={tooltipInfo.description}>
+            &#9432;
+          </span>
+        )}
+      </h4>
       <svg ref={svgRef}></svg>
-    </div>
+    </>
   );
 };
 
@@ -390,6 +592,7 @@ export default function MidiAnalyzer() {
 
   const [mostrarSelector, setMostrarSelector] = useState(false);
   const [chartTypes, setChartTypes] = useState<Record<string, string>>({});
+  const [analizando, setAnalizando] = useState(false); // Nuevo estado para controlar la visibilidad de los gráficos
 
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -412,16 +615,24 @@ export default function MidiAnalyzer() {
     }
   };
 
-  const iniciarAnalisis = () => {
+  const iniciarAnalisis = async () => {
+    setAnalizando(true); // Mostrar animación de carga y limpiar gráficos
     const instrumentoFinal = instrumentoPendiente.trim();
     setInstrumentoSeleccionado(instrumentoFinal);
-    analizar(instrumentoFinal);
+    await analizar(instrumentoFinal);
+    setAnalizando(false); // Ocultar animación de carga
   };
 
   const exportarCSV = () => {
-    if (!resultado?.metricas) return;
+    if (!resultado?.metricas) {
+      alert('No hay métricas para exportar.');
+      return;
+    }
 
-    const flattenObject = (obj: any, prefix = '') => {
+    const metricasParaExportar = resultado.metricas;
+
+    // Función para aplanar el objeto JSON en pares clave-valor CSV
+    const flattenObject = (obj: any, prefix = ''): string[] => {
       let lines: string[] = [];
       for (const key in obj) {
         if (obj.hasOwnProperty(key)) {
@@ -432,48 +643,13 @@ export default function MidiAnalyzer() {
             if (Array.isArray(value)) {
               value.forEach((item, index) => {
                 if (typeof item === 'object' && item !== null) {
-                  // Handle array of objects (e.g., partes_detectadas, metrics per compass)
-                  const itemKey = Object.keys(item)[0];
-                  const itemValue = item[itemKey];
-                  lines.push(`${newKey}.${itemKey},${itemValue}`);
+                  // Aplanar objetos dentro de arrays
+                  lines = lines.concat(flattenObject(item, `${newKey}[${index}]`));
                 } else {
-                  // Handle array of primitives
                   lines.push(`${newKey}[${index}],${item}`);
                 }
               });
-            } else if (
-              newKey === 'cantidad_total_notas' &&
-              'total' in value &&
-              'por_nota' in value
-            ) {
-              const val = value as CantidadTotalNotas;
-              lines.push(`${newKey}.total,${val.total}`);
-              for (const noteKey in val.por_nota) {
-                lines.push(`${newKey}.por_nota.${noteKey},${val.por_nota[noteKey]}`);
-              }
-            } else if (
-              newKey === 'motivos_recurrentes' ||
-              newKey === 'intervalos_predominantes' ||
-              newKey === 'progresiones_armonicas' ||
-              newKey === 'red_interaccion_musical' ||
-              newKey === 'familias_instrumentales'
-            ) {
-              // Handle specific complex objects
-              for (const subKey in value) {
-                if (value.hasOwnProperty(subKey)) {
-                  if (typeof value[subKey] === 'object' && value[subKey] !== null) {
-                    for (const deepKey in value[subKey]) {
-                      if (value[subKey].hasOwnProperty(deepKey)) {
-                        lines.push(`${newKey}.${subKey}.${deepKey},${value[subKey][deepKey]}`);
-                      }
-                    }
-                  } else {
-                    lines.push(`${newKey}.${subKey},${value[subKey]}`);
-                  }
-                }
-              }
             } else {
-              // Recursively flatten other objects
               lines = lines.concat(flattenObject(value, newKey));
             }
           } else {
@@ -484,16 +660,16 @@ export default function MidiAnalyzer() {
       return lines;
     };
 
-    const filas = flattenObject(resultado.metricas);
+    const filas = flattenObject(metricasParaExportar);
     const csvContent = 'data:text/csv;charset=utf-8,' + filas.join('\n');
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `${resultado.archivo || 'metricas'}.csv`);
+    link.setAttribute('download', `metricas_${archivo?.name?.replace('.mid', '') || 'export'}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  };
+};
 
   const obtenerMetricasEscalares = () => {
     if (!resultado?.metricas) return {};
@@ -521,13 +697,15 @@ export default function MidiAnalyzer() {
 };
 
   const renderMetricChart = (key: string, value: any) => {
+    const tooltipInfo = TOOLTIPS[key];
+
     // Red de Interacción Musical (Chord Chart)
     if (
       key === 'red_interaccion_musical' &&
       typeof value === 'object' &&
       value !== null
     ) {
-      return <ChordChart key={`chord-${key}`} data={value} title="Red de Interacción Musical" />;
+      return <ChordChart key={`chord-${key}`} data={value} title="Red de Interacción Musical" tooltipInfo={tooltipInfo} />;
     }
 
     // Progresiones Armónicas (Chord Chart)
@@ -543,7 +721,7 @@ export default function MidiAnalyzer() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 12);
       const limitedData = Object.fromEntries(sortedEntries);
-      return <ChordChart key={`chord-${key}`} data={limitedData} title="Progresiones Armónicas (Top 12)" />;
+      return <ChordChart key={`chord-${key}`} data={limitedData} title="Progresiones Armónicas (Top 12)" tooltipInfo={tooltipInfo} />;
     }
 
     // Cantidad Total de Notas
@@ -566,7 +744,9 @@ export default function MidiAnalyzer() {
             {
               label: 'Notas',
               data: data as number[],
-              backgroundColor: labels.map((_, i) => `hsl(${i * 30}, 70%, 60%)`),
+              backgroundColor: labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+              borderColor: labels.map((_, i) => CHART_BORDER_COLORS[i % CHART_BORDER_COLORS.length]),
+              borderWidth: 1,
             },
           ],
         },
@@ -578,8 +758,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`notas-total-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">Cantidad de Notas por Tono</h4>
+        <div className="mb-6 chart-container" key={`notas-total-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            Cantidad de Notas por Tono
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -622,7 +809,9 @@ export default function MidiAnalyzer() {
             {
               label: 'Número de Instrumentos',
               data,
-              backgroundColor: 'rgba(54, 162, 235, 0.6)',
+              backgroundColor: CHART_COLORS[0], // Usar el primer color de la paleta
+              borderColor: CHART_BORDER_COLORS[0],
+              borderWidth: 1,
             },
           ],
         },
@@ -634,8 +823,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`familias-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">Familias Instrumentales</h4>
+        <div className="mb-6 chart-container" key={`familias-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            Familias Instrumentales
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -674,7 +870,9 @@ export default function MidiAnalyzer() {
             {
               label: 'Cantidad de Notas',
               data,
-              backgroundColor: 'rgba(255, 99, 132, 0.6)',
+              backgroundColor: CHART_COLORS[1], // Usar el segundo color de la paleta
+              borderColor: CHART_BORDER_COLORS[1],
+              borderWidth: 1,
             },
           ],
         },
@@ -686,8 +884,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`partes-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">Notas por Parte Detectada</h4>
+        <div className="mb-6 chart-container" key={`partes-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            Notas por Parte Detectada
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -732,7 +937,9 @@ export default function MidiAnalyzer() {
             {
               label: 'Conteo',
               data,
-              backgroundColor: 'rgba(153, 102, 255, 0.6)',
+              backgroundColor: CHART_COLORS[2], // Usar el tercer color de la paleta
+              borderColor: CHART_BORDER_COLORS[2],
+              borderWidth: 1,
             },
           ],
         },
@@ -744,8 +951,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`motivos-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">Motivos Recurrentes</h4>
+        <div className="mb-6 chart-container" key={`motivos-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            Motivos Recurrentes
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -800,7 +1014,9 @@ export default function MidiAnalyzer() {
             {
               label: 'Frecuencia',
               data: data as number[],
-              backgroundColor: 'rgba(255, 159, 64, 0.6)',
+              backgroundColor: CHART_COLORS[3], // Usar el cuarto color de la paleta
+              borderColor: CHART_BORDER_COLORS[3],
+              borderWidth: 1,
             },
           ],
         },
@@ -812,8 +1028,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`intervalos-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">Intervalos Predominantes</h4>
+        <div className="mb-6 chart-container" key={`intervalos-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            Intervalos Predominantes
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -869,9 +1092,10 @@ export default function MidiAnalyzer() {
             {
               label: key.replace(/_/g, ' ').replace(' por compas', ''),
               data: data as number[],
-              backgroundColor: 'rgba(75, 192, 192, 0.6)',
-              borderColor: 'rgba(75, 192, 192, 1)',
+              backgroundColor: CHART_COLORS[4], // Usar un color de la paleta
+              borderColor: CHART_BORDER_COLORS[4],
               fill: false,
+              tension: 0.1, // Suavizar la línea
             },
           ],
         },
@@ -891,8 +1115,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`compas-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">{key.replace(/_/g, ' ')} (Por Compás)</h4>
+        <div className="mb-6 chart-container" key={`compas-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            {key.replace(/_/g, ' ')} (Por Compás)
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -910,7 +1141,7 @@ export default function MidiAnalyzer() {
           {{
             line: <Line key={`${key}-line`} {...chartProps} />,
             bar: <Bar key={`${key}-bar`} {...chartProps} />,
-            heatmap: <Heatmap key={`${key}-heatmap`} data={value.map(item => ({ compas: Object.keys(item)[0], value: Object.values(item)[0] as number }))} title={key.replace(/_/g, ' ')} />,
+            heatmap: <Heatmap key={`${key}-heatmap`} data={value.map(item => ({ compas: Object.keys(item)[0], value: Object.values(item)[0] as number }))} title={key.replace(/_/g, ' ')} tooltipInfo={tooltipInfo} />,
           }[tipo]}
         </div>
       );
@@ -930,8 +1161,8 @@ export default function MidiAnalyzer() {
       const dataset = {
         label: key.replace(/_/g, ' '),
         data,
-        backgroundColor: labels.map((_, i) => `hsl(${i * 60}, 70%, 60%)`),
-        borderColor: labels.map((_, i) => `hsl(${i * 60}, 70%, 40%)`),
+        backgroundColor: labels.map((_, i) => CHART_COLORS[i % CHART_COLORS.length]),
+        borderColor: labels.map((_, i) => CHART_BORDER_COLORS[i % CHART_BORDER_COLORS.length]),
         borderWidth: 1,
       };
 
@@ -953,8 +1184,15 @@ export default function MidiAnalyzer() {
       };
 
       return (
-        <div className="mb-6" key={`obj-${key}`}>
-          <h4 className="text-sm font-semibold mb-1">{key.replace(/_/g, ' ')}</h4>
+        <div className="mb-6 chart-container" key={`obj-${key}`}>
+          <h4 className="text-sm font-semibold mb-1 chart-title">
+            {key.replace(/_/g, ' ')}
+            {tooltipInfo && (
+              <span className="tooltip-icon" title={tooltipInfo.description}>
+                &#9432;
+              </span>
+            )}
+          </h4>
           <div className="mb-2">
             <label className="text-xs mr-2">Tipo de gráfica:</label>
             <select
@@ -990,14 +1228,14 @@ export default function MidiAnalyzer() {
     <div className="app-layout">
       {/* Cabecera */}
       <header className="app-header">
-        <h1 className="app-title">SmartScore Analyzer</h1>
+        <h1 className="app-title">Analizador SmartScore✨</h1>
         <div className="header-controls">
           <div className="control-group">
             <label className="control-label">Modo de análisis:</label>
             <select
               value={modo}
               onChange={(e) => setModo(e.target.value as typeof modo)}
-              className="control-select"
+              className="control-select glass-effect"
             >
               {MODOS.map((m, index) => (
                 <option key={index} value={m}>
@@ -1011,7 +1249,7 @@ export default function MidiAnalyzer() {
             <div className="control-group">
               <button
                 onClick={() => setMostrarSelector(!mostrarSelector)}
-                className="control-button"
+                className="control-button glass-effect"
               >
                 Seleccionar instrumento
               </button>
@@ -1019,7 +1257,7 @@ export default function MidiAnalyzer() {
                 <select
                   value={instrumentoPendiente}
                   onChange={(e) => setInstrumentoPendiente(e.target.value)}
-                  className="control-select"
+                  className="control-select glass-effect"
                 >
                   <option value="">-- Sin filtro de instrumento --</option>
                   {instrumentosDetectados.map((nombre, index) => (
@@ -1031,8 +1269,8 @@ export default function MidiAnalyzer() {
               )}
               <button
                 onClick={iniciarAnalisis}
-                className="control-button primary"
-                disabled={cargando}
+                className="control-button primary glass-effect"
+                disabled={cargando || analizando} // Deshabilitar si ya está cargando o analizando
               >
                 Iniciar análisis
               </button>
@@ -1047,14 +1285,47 @@ export default function MidiAnalyzer() {
 
       <div className="main-content">
         {/* Área Principal (Izquierda) */}
-        <main className="main-area">
-          {Object.keys(metricasEscalares).length > 0 && (
+        <main className="main-area glass-effect">
+          {analizando && ( // Mostrar animación de carga si analizando es true
+            <div className="loading-indicator">
+              <svg
+                className="spinner"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v8H4z"
+                />
+              </svg>
+              Análisis en proceso...
+            </div>
+          )}
+
+          {!analizando && Object.keys(metricasEscalares).length > 0 && (
             <div className="chart-section">
               <h4 className="section-title">Métricas escalares</h4>
               <div className="scalar-metrics-grid">
                 {Object.entries(metricasEscalares).map(([key, value]) => (
-                  <div key={key} className="scalar-metric-card">
-                    <h5 className="scalar-metric-title">{key.replace(/_/g, ' ')}</h5>
+                  <div key={key} className="scalar-metric-card glass-effect">
+                    <h5 className="scalar-metric-title">
+                      {key.replace(/_/g, ' ')}
+                      {TOOLTIPS[key] && (
+                        <span className="tooltip-icon" title={TOOLTIPS[key].description}>
+                          &#9432;
+                        </span>
+                      )}
+                    </h5>
                     <p className="scalar-metric-value">{typeof value === 'number' ? value.toFixed(3) : value}</p>
                   </div>
                 ))}
@@ -1062,7 +1333,7 @@ export default function MidiAnalyzer() {
             </div>
           )}
 
-          {resultado?.metricas && (
+          {!analizando && resultado?.metricas && (
             <>
               <div className="charts-list"> {/* Changed from charts-grid to charts-list */}
                 {Object.entries(resultado.metricas)
@@ -1072,20 +1343,20 @@ export default function MidiAnalyzer() {
 
               <button
                 onClick={exportarCSV}
-                className="export-button"
+                className="export-button glass-effect"
               >
                 Exportar métricas como CSV
               </button>
             </>
           )}
 
-          {resultado && (
-            <pre className="result-json">
+          {!analizando && resultado && (
+            <pre className="result-json glass-effect">
               {JSON.stringify(resultado, null, 2)}
             </pre>
           )}
 
-          {cargando && (
+          {cargando && !analizando && ( // Mostrar spinner de carga inicial si no estamos en análisis activo
             <div className="loading-indicator">
               <svg
                 className="spinner"
@@ -1113,14 +1384,14 @@ export default function MidiAnalyzer() {
         </main>
 
         {/* Barra Lateral Derecha */}
-        <aside className="sidebar-right">
+        <aside className="sidebar-right glass-effect">
           <div className="sidebar-section">
             <h3 className="sidebar-title">Subir Archivo MIDI</h3>
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              className={`drag-drop-area ${isDragActive ? 'active' : ''}`}
+              className={`drag-drop-area glass-effect ${isDragActive ? 'active' : ''}`}
             >
               <p>Arrastra aquí tu archivo MIDI (.mid)</p>
             </div>
@@ -1128,7 +1399,7 @@ export default function MidiAnalyzer() {
             <div className="file-upload-controls">
               <button
                 onClick={() => document.getElementById('midi-upload')?.click()}
-                className="upload-button"
+                className="upload-button glass-effect"
               >
                 Elegir archivo MIDI
               </button>
@@ -1157,7 +1428,7 @@ export default function MidiAnalyzer() {
                 <button
                   key={index}
                   onClick={() => setCategoria(cat as typeof categoria)}
-                  className={`category-button ${categoria === cat ? 'active' : ''}`}
+                  className={`category-button glass-effect ${categoria === cat ? 'active' : ''}`}
                 >
                   {cat.charAt(0).toUpperCase() + cat.slice(1)}
                 </button>

@@ -2,27 +2,37 @@
 body {
   margin: 0;
   font-family: system-ui, sans-serif;
-  background-color: #f9fafb;
+  background: linear-gradient(135deg, #2b9ce2, #4169e1); /* Gradiente de paleta_app.png */
   color: #374151;
-  min-height: 100vh; /* Asegura que el body ocupe toda la altura de la ventana */
-  display: flex; /* Para que el App.tsx pueda usar flexbox si es necesario */
+  min-height: 100vh;
+  display: flex;
   flex-direction: column;
+  overflow-x: hidden; /* Evitar scroll horizontal */
 }
 
-.drag-drop-area {
-  border: 4px solid #9ca3af; /* gris */
-  border-radius: 6px;
-  padding: 24px;
-  text-align: center;
-  cursor: pointer;
-  background-color: #f9fafb; /* gris claro */
-  transition: border-color 0.3s ease, background-color 0.3s ease;
+/* Glassmorphism effect */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.15); /* Fondo semi-transparente */
+  backdrop-filter: blur(10px); /* Desenfoque */
+  -webkit-backdrop-filter: blur(10px); /* Para compatibilidad con Safari */
+  border: 1px solid rgba(255, 255, 255, 0.2); /* Borde sutil */
+  border-radius: 12px; /* Bordes redondeados */
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1); /* Sombra suave */
 }
 
-.drag-drop-area.active {
-  border-color: #2563eb; /* azul */
-  background-color: #bfdbfe; /* azul claro */
+/* Tooltip styles */
+.tooltip-icon {
+  cursor: help;
+  margin-left: 5px;
+  font-size: 0.8em;
+  color: #666;
+  vertical-align: middle;
 }
+
+.tooltip-icon:hover {
+  color: #000;
+}
+
 /* Layout principal de la aplicación */
 .app-layout {
   display: flex;
@@ -32,20 +42,26 @@ body {
 
 /* Cabecera */
 .app-header {
-  background-color: #4a5568; /* Gris oscuro */
+  background: rgba(255, 255, 255, 0.2); /* Glassmorphism en header */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
   color: white;
   padding: 1rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap; /* Permite que los elementos se envuelvan en pantallas pequeñas */
-  gap: 1rem; /* Espacio entre elementos de la cabecera */
+  flex-wrap: wrap;
+  gap: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .app-title {
   margin: 0;
   font-size: 1.8rem;
   font-weight: bold;
+  color: white; /* Título blanco para contraste */
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
 }
 
 .header-controls {
@@ -63,139 +79,174 @@ body {
 
 .control-label {
   font-size: 0.9rem;
-  white-space: nowrap; /* Evita que el texto se rompa */
+  white-space: nowrap;
+  color: white; /* Etiquetas blancas */
 }
 
 .control-select,
 .control-button {
   padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  border: 1px solid #a0aec0;
-  background-color: white;
-  color: #2d3748;
+  border-radius: 8px; /* Más redondeado */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2); /* Glassmorphism */
+  color: white; /* Texto blanco */
   cursor: pointer;
   font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
+.control-select:hover,
 .control-button:hover {
-  background-color: #e2e8f0;
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
+
+.control-select option {
+  color: black; /* Texto negro para las opciones del select */
+  background-color: white; /* Fondo blanco para las opciones */
+}
+
 
 .control-button.primary {
-  background-color: #48bb78; /* Verde */
+  background: linear-gradient(45deg, #48bb78, #38a169); /* Gradiente verde */
   color: white;
-  border-color: #48bb78;
+  border: none; /* Sin borde para el primario */
 }
 
 .control-button.primary:hover {
-  background-color: #38a169;
+  background: linear-gradient(45deg, #38a169, #2f855a);
 }
 
 .control-info {
   font-size: 0.8rem;
-  color: #cbd5e0; /* Gris claro */
+  color: #e2e8f0;
   margin: 0;
 }
 
 /* Contenido principal (área principal + sidebar) */
 .main-content {
   display: flex;
-  flex: 1; /* Ocupa el espacio restante */
-  padding: 1rem;
-  gap: 1rem;
+  flex: 1;
+  padding: 1.5rem; /* Más padding */
+  gap: 1.5rem; /* Más espacio entre columnas */
 }
 
 /* Área Principal (Izquierda) */
 .main-area {
-  flex: 3; /* Ocupa 3 partes del espacio disponible */
-  background-color: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  overflow-y: auto; /* Permite scroll si el contenido es muy largo */
+  flex: 3;
+  background: rgba(255, 255, 255, 0.15); /* Glassmorphism */
+  border-radius: 12px;
+  padding: 2rem; /* Más padding */
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+  color: #f0f4f8; /* Texto claro */
 }
 
 .chart-section {
-  margin-bottom: 1.5rem;
-  padding-bottom: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 2rem; /* Más margen */
+  padding-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Borde más suave */
 }
 
 .section-title {
-  font-size: 1.2rem;
+  font-size: 1.4rem; /* Más grande */
   font-weight: bold;
-  margin-bottom: 1rem;
-  color: #2d3748;
+  margin-bottom: 1.2rem;
+  color: white; /* Título blanco */
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
-.chart-type-selector {
-  margin-bottom: 1rem;
+.chart-title {
+  color: white; /* Título de gráfica blanco */
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chart-label {
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   margin-right: 0.5rem;
+  color: #e2e8f0; /* Etiquetas claras */
 }
 
 .chart-select {
   padding: 0.3rem 0.6rem;
-  border-radius: 4px;
-  border: 1px solid #a0aec0;
-  background-color: white;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
   font-size: 0.85rem;
 }
+.chart-select option {
+  background-color: #4169e1; /* Fondo oscuro para opciones */
+  color: white;
+}
+
 
 /* Modificación para mostrar gráficas una encima de la otra */
 .charts-list {
   display: flex;
-  flex-direction: column; /* Apila los elementos verticalmente */
-  gap: 1.5rem; /* Espacio entre las gráficas */
+  flex-direction: column;
+  gap: 2rem; /* Más espacio entre las gráficas */
+}
+
+.chart-container {
+  background: rgba(255, 255, 255, 0.418); /* Fondo más sutil para cada gráfica */
+  border-radius: 10px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .export-button {
-  background-color: #4299e1; /* Azul */
+  background: linear-gradient(45deg, #4299e1, #3182ce); /* Gradiente azul */
   color: white;
-  padding: 0.6rem 1.2rem;
-  border-radius: 4px;
+  padding: 0.8rem 1.5rem; /* Más grande */
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-size: 1rem;
-  margin-top: 1.5rem;
-  transition: background-color 0.2s ease;
+  font-size: 1.1rem;
+  margin-top: 2rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 .export-button:hover {
-  background-color: #3182ce;
+  background: linear-gradient(45deg, #3182ce, #2b6cb0);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .result-json {
-  background-color: #f7fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  padding: 1rem;
-  margin-top: 1.5rem;
-  font-size: 0.8rem;
-  white-space: pre-wrap; /* Permite que el texto se envuelva */
-  word-break: break-all; /* Rompe palabras largas */
+  background: rgba(0, 0, 0, 0.2); /* Fondo oscuro para JSON */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  white-space: pre-wrap;
+  word-break: break-all;
   max-height: 400px;
   overflow-y: auto;
+  color: #a0aec0; /* Texto claro */
 }
 
 .loading-indicator {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  color: #4299e1;
-  font-size: 0.9rem;
-  margin-top: 1rem;
+  gap: 0.8rem;
+  color: white; /* Blanco */
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
 .spinner {
   animation: spin 1s linear infinite;
-  height: 1.25rem;
-  width: 1.25rem;
-  color: #4299e1;
+  height: 1.5rem; /* Más grande */
+  width: 1.5rem;
+  color: white; /* Blanco */
 }
 
 @keyframes spin {
@@ -210,45 +261,51 @@ body {
 /* Estilos para métricas escalares en tarjetas */
 .scalar-metrics-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); /* Ajusta el tamaño de las tarjetas */
-  gap: 1rem;
-  margin-top: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.5rem; /* Más espacio */
+  margin-top: 1.5rem;
 }
 
 .scalar-metric-card {
-  background-color: #f0f4f8; /* Fondo claro para las tarjetas */
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 1rem;
+  background: rgba(255, 255, 255, 0.1); /* Glassmorphism */
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  padding: 1.2rem;
   text-align: center;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  color: white; /* Texto blanco */
 }
 
 .scalar-metric-title {
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: bold;
-  color: #4a5568;
-  margin-bottom: 0.5rem;
-  text-transform: capitalize; /* Capitaliza el título */
+  color: white;
+  margin-bottom: 0.6rem;
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scalar-metric-value {
-  font-size: 1.2rem;
+  font-size: 1.4rem; /* Más grande */
   font-weight: bold;
-  color: #2d3748;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
 
 /* Barra Lateral Derecha */
 .sidebar-right {
-  flex: 1; /* Ocupa 1 parte del espacio disponible */
-  background-color: white;
-  border-radius: 8px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex: 1;
+  background: rgba(255, 255, 255, 0.15); /* Glassmorphism */
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 2rem; /* Más espacio */
+  color: #f0f4f8; /* Texto claro */
 }
 
 .sidebar-section {
@@ -256,83 +313,103 @@ body {
 }
 
 .sidebar-title {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: bold;
-  margin-bottom: 1rem;
-  color: #2d3748;
+  margin-bottom: 1.2rem;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
 }
 
 /* Estilos para la zona drag and drop */
 .drag-drop-area {
-  border: 4px solid #9ca3af; /* gris */
-  border-radius: 6px;
-  padding: 24px;
+  border: 2px dashed rgba(255, 255, 255, 0.5); /* Borde dashed más suave */
+  border-radius: 10px;
+  padding: 2rem;
   text-align: center;
   cursor: pointer;
-  background-color: #f9fafb; /* gris claro */
+  background: rgba(255, 255, 255, 0.05); /* Fondo más transparente */
   transition: border-color 0.3s ease, background-color 0.3s ease;
+  color: #e2e8f0; /* Texto claro */
 }
 
 .drag-drop-area.active {
-  border-color: #2563eb; /* azul */
-  background-color: #bfdbfe; /* azul claro */
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .file-upload-controls {
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
-  margin-top: 1rem;
+  gap: 1rem;
+  margin-top: 1.5rem;
 }
 
 .upload-button {
-  background-color: #4a5568; /* Gris oscuro */
+  background: linear-gradient(45deg, #6a5acd, #483d8b); /* Gradiente morado */
   color: white;
-  padding: 0.6rem 1rem;
-  border-radius: 4px;
+  padding: 0.7rem 1.2rem;
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease;
+  font-size: 1rem;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .upload-button:hover {
-  background-color: #2d3748;
+  background: linear-gradient(45deg, #483d8b, #2f275c);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .file-name {
-  font-size: 0.85rem;
-  color: #4a5568;
+  font-size: 0.9rem;
+  color: #e2e8f0;
 }
 
 .category-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.8rem; /* Más espacio */
 }
 
 .category-button {
-  background-color: #e2e8f0; /* Gris claro */
-  color: #2d3748;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  border: 1px solid #cbd5e0;
+  background: rgba(255, 255, 255, 0.1); /* Glassmorphism */
+  color: white;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
+  font-size: 0.95rem;
+  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
 }
 
 .category-button:hover {
-  background-color: #cbd5e0;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .category-button.active {
-  background-color: #4299e1; /* Azul */
+  background: linear-gradient(45deg, #4299e1, #3182ce); /* Gradiente azul activo */
   color: white;
-  border-color: #4299e1;
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
+/* Chart.js specific styles to ensure text visibility */
+.chartjs-render-monitor {
+  color: white !important; /* Force white text for chart labels/legends */
+}
+
+/* Override Chart.js default font colors if necessary */
+canvas {
+  color: white; /* Fallback for canvas text */
+}
+
+/* D3 chart text colors */
 svg text {
+  fill: white !important; /* Ensure D3 text is white */
   user-select: none;
   pointer-events: none;
 }
@@ -345,7 +422,7 @@ svg text {
 .row-label {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-weight: 700;
-  fill: #2d3748;
+  fill: white !important; /* Etiquetas de fila blancas */
 }
 /* Flechas en progresiones armónicas */
 .arrow {
@@ -354,7 +431,7 @@ svg text {
 
 .chord-legend {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  color: #2d3748;
+  color: white; /* Leyenda de chord chart blanca */
 }
 
 .legend-item {
@@ -366,7 +443,7 @@ svg text {
   height: 14px;
   border-radius: 3px;
   display: inline-block;
-  border: 1px solid #cbd5e0;
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Borde más suave */
 }
 
 .mb-4, .mb-6 {
@@ -383,6 +460,29 @@ svg text {
   margin: 0 auto;
 }
 
+.chord-legend {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color: white; /* Leyenda blanca */
+  user-select: none;
+}
+
+.legend-item {
+  user-select: none;
+  max-width: 180px; /* Limitar ancho para que haga wrap */
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+}
+
+.legend-color-block {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
 /* Media Queries para responsividad básica */
 @media (max-width: 768px) {
   .app-header {
@@ -397,16 +497,24 @@ svg text {
   }
 
   .main-content {
-    flex-direction: column; /* Apila el contenido principal y la barra lateral */
+    flex-direction: column;
   }
 
   .main-area,
   .sidebar-right {
-    flex: none; /* Desactiva el flex-grow */
-    width: 100%; /* Ocupa todo el ancho */
+    flex: none;
+    width: 100%;
+    padding: 1.5rem; /* Ajustar padding para móviles */
   }
 
   .charts-grid {
-    grid-template-columns: 1fr; /* Una columna en pantallas pequeñas */
+    grid-template-columns: 1fr;
+  }
+
+  .control-select,
+  .control-button,
+  .upload-button,
+  .category-button {
+    width: 100%; /* Botones y selects ocupan todo el ancho */
   }
 }

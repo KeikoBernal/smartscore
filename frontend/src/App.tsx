@@ -5,7 +5,7 @@ import MidiAnalyzer from './components/MidiAnalyzer';
 const App: React.FC = () => {
   return (
     <div className="App">
-      <h1>SmartScore Analyzer</h1>
+      <h1> 🎵 SmartScore: Analizador de Archivos MIDI</h1>
       <MidiAnalyzer />
     </div>
   );
