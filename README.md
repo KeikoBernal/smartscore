@@ -1,4 +1,4 @@
-### 🎼 SmartScore — Análisis Matemático de Música Clásica
+# 🎼 SmartScore — Análisis Matemático de Música Clásica
 
 SmartScore es una herramienta computacional diseñada para analizar archivos MIDI desde una perspectiva matemática, con énfasis en estructuras musicales propias del repertorio clásico. Utiliza bibliotecas como `pretty_midi`, `music21` y `numpy` para extraer métricas que revelan simetrías, proporciones, transformaciones y patrones tonales.
 
