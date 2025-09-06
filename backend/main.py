@@ -16,7 +16,7 @@ app.include_router(clasificador_metricas_endpoint.router, prefix="/metricas")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["https://smartscoreanalyzer.netlify.app/"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
