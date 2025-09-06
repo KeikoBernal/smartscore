@@ -1,4 +1,10 @@
 fastapi==0.110.0
 uvicorn[standard]==0.27.1
+numpy==1.26.4
+pretty_midi==0.2.9
 music21==6.1.0
 python-multipart==0.0.7
+pydantic==2.11.7
+pydantic-core==2.33.2
+aiofiles==23.2.1
+python-dotenv==1.1.1
