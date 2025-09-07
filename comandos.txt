@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "version local estable"
+git commit -m "version final"
 git push origin main
 
 source backend/venv/Scripts/activate

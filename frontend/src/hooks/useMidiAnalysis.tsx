@@ -1,5 +1,3 @@
-// /src/hooks/useMidiAnalysis.tsx
-
 import { useState } from 'react';
 import {
   subirArchivo,
