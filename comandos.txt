@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "version final"
+git commit -m "actualizacion de requerimientos"
 git push origin main
 
 source backend/venv/Scripts/activate
