@@ -2,13 +2,13 @@
   "name": "smartscore-frontend",
   "version": "1.0.0",
   "type": "module",
-    "scripts": {
+  "scripts": {
     "dev": "vite",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build": "vite build"
+    "build": "chmod +x node_modules/.bin/vite && vite build"
   },
-  
+
   "dependencies": {
     "axios": "^1.11.0",
     "chart.js": "^4.5.0",
