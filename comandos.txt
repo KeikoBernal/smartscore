@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "actualizacion de requerimientos"
+git commit -m "intento de deploy"
 git push origin main
 
 source backend/venv/Scripts/activate
