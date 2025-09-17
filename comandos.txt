@@ -1,6 +1,6 @@
 git status
 git add .
-git commit -m "intento de deploy"
+git commit -m "segundo intento de deploy"
 git push origin main
 
 source backend/venv/Scripts/activate
